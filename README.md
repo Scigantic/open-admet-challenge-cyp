@@ -11,7 +11,7 @@ Predicting pIC50 against four cytochrome P450 isoforms (CYP1A2, CYP2C9, CYP2D6, 
 
 ## I am not a cheminformatician
 
-I have never run a CYP assay and could not have told you which residues line the CYP2D6 active site. This submission is by a software engineer who purely specializing in information retrieval.
+I have never run a CYP assay and could not have told you which residues line the CYP2D6 active site. This submission is by a software engineer who purely specializes in information retrieval.
 
 [Scigantic](https://scigantic.com) is a platform that democratizes access to large-scale
 archives and to the open-source models worth running against them. The goal here was to see
@@ -120,12 +120,12 @@ The last question above does happen to favor no schema card. The schema card inc
 What's exciting here is that Scigantic's schema card approach here can be generalized across different scientific domains and large-scale archives. Similar preliminary benchmarking was done on the following examples below, with a massive improvement in round-trip latency.
 
 
-| archive                                                                                                               | domain                      | scale                   | schema calls, card | schema calls, no card | time, card | time, no card |
+| archive                                                                                                               | domain                      | scale                   | calls, card | calls, no card | time, card | time, no card |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------- | ------------------ | --------------------- | ---------- | ------------- |
 | [`met-office-cmip6`](https://registry.opendata.aws/met-office-cmip6/)                                                 | decadal climate hindcasts   | 438,971 objects, 78 TB  | 55                 | 55                    | **830s**   | 833s          |
 | [`nasa-lunar-fm-bench`](https://registry.opendata.aws/som-bench/)                                                     | planetary remote sensing    | 47.6M objects, 44 TB    | **44**             | 75                    | **240s**   | 795s          |
 | [`sea-ad-single-cell-profiling`](https://registry.opendata.aws/allen-sea-ad-atlas/)                                   | single-cell transcriptomics | 726,870 objects, 269 GB | **27**             | 58                    | **238s**   | 885s          |
-| [`LiteFold/PDB`](https://huggingface.co/datasets/LiteFold/PDB)                                                        | protein structures          | 99,993 files, 31 GB     | **27**             | 30                    | **111s**   | 204s          |
+| [`LiteFold/PDB`](https://huggingface.co/datasets/LiteFold/PDB)                                                        | protein structures          | 99,993 files, 31 GB     | **27**             | 30                    | **112s**   | 204s          |
 | [`openadmet/Octant_CYP_...`](https://huggingface.co/datasets/openadmet/Octant_CYP_inhibition_reactivity_blog_release) | ADMET assay                 | 6 files, 7 MB           | **38**             | 46                    | **168s**   | 195s          |
 
 
@@ -213,5 +213,5 @@ Squared error penalizes for those misses although the metric does not. So the tw
 
 ## Next steps
 
-Whether or not Scigantic wins the OpenADMET challenge (or makes the podium) is TBD. What's exciting is that the method of information retrieval that Scigantic provides is working. These are results based off of no proprietary data, access to HPC clusters, or subject matter experts prompting. 
+Whether or not Scigantic wins the OpenADMET challenge (or makes the podium) is TBD. What's exciting is that the method of information retrieval that Scigantic provides is working. These are results based off of no proprietary data, access to HPC clusters, or subject matter experts prompting, but imagine what the results might be if we did. 
 
