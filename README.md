@@ -98,7 +98,7 @@ file here, so counting from the wrong one overstates the archive 2.56x. And of t
 
 ### What the schema card improves
 
-The goal is to improve **model efficiency. This includes less API calls[^1],  less tokens, improve round-trip latency, and better activation of each LLM or fine-tuned model**: how many times the assistant hits the model endpoint to answer one question. A model can't always answer from memory (e.g. the initial prompt too), so traditionally the model reads files and runs code, with every step carrying the whole conversation so far. Thus, fewer calls means less latency and less spend.
+The goal is to improve **model efficiency. This includes less API calls<sup>1</sup>,  less tokens, improve round-trip latency, and better activation of each LLM or fine-tuned model**: how many times the assistant hits the model endpoint to answer one question. A model can't always answer from memory (e.g. the initial prompt too), so traditionally the model reads files and runs code, with every step carrying the whole conversation so far. Thus, fewer calls means less latency and less spend.
 
 Five questions against [`LiteFold/PDB`](https://huggingface.co/datasets/LiteFold/PDB), the PDB mmCIF mirror, asked once with the schema card vs. once with no schema card:
 
@@ -215,5 +215,7 @@ Squared error penalizes for those misses although the metric does not. So the tw
 
 Whether or not Scigantic wins the OpenADMET challenge (or makes the podium) is TBD. What's exciting is that the method of information retrieval that Scigantic provides is working. These are results based off of no proprietary data, access to HPC clusters, or subject matter experts prompting, but imagine what the results might be if we did. 
 
-[^1]: Every benchmark on this page was run against Claude Opus 5, at the same effort
-  setting in both arms.
+---
+
+<sup>1</sup> Every benchmark on this page was run against Claude Opus 5, at the same effort
+setting in both arms.
