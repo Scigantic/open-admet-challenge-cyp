@@ -184,6 +184,7 @@ tab = pd.DataFrame({
                        "CYP2D6": score[("CYP2D6", "R24")], "CYP3A4": score[("CYP3A4", "R23")]},
     "live R17": {e: live["R17"][e] for e in EPS},
     "live R25": {e: live["R25"][e] for e in EPS},
-}).round(4)
-tab.loc["macro"] = [np.nan, np.nan, live["R17"]["macro"], live["R25"]["macro"]]
+}).round(4).astype(object)
+# the OOF columns have no macro: each endpoint was fitted on a different row set
+tab.loc["macro"] = ["", "", live["R17"]["macro"], live["R25"]["macro"]]
 print(tab)
