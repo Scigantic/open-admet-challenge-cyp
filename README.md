@@ -92,9 +92,11 @@ printed by the script and shown in the notebook.
   set; one blind compound remains in the `union18` table with AID 1851 maximum-response
   values only (no potency label), kept for parity with the public recipe. Details in
   `training/README.md`.
-- The interim rank above is from the 2026-09-25 interim leaderboard. Submissions after
-  R25 (R28, 2026-09-25, macro 0.4438) did not improve on it and R25 was restored as the
-  live entry on 2026-09-26.
+- The rank above is from the 2026-09-25 interim leaderboard, which is a fixed snapshot.
+  The live leaderboard has moved on: as of 2026-10-19 the best entry is 0.3537 and our
+  live row is rank 25 of 177, scoring 0.4456 from an upload on 2026-09-30. That upload is
+  not R25 and is worse than R25. R25 remains our best scored file and is what this repo
+  rebuilds.
 - Out-of-fold numbers in the notebook are on the rows the weights were fitted on and read
   optimistic; the per-endpoint transfer from offline gain to board gain is measured in
   `docs/submission_history.md` (CYP3A4 6 of 6 calls right, CYP2D6 2 of 5).
