@@ -1,0 +1,56 @@
+{
+ "artifact_type": "isolated_single_column_bet",
+ "status": "built_not_submitted",
+ "base": {
+  "path": "analysis/r17_revert_20260912/OpenADMET_R17_BEST_KNOWN_COLUMNS_20260912.csv",
+  "sha256": "d91b70b2bf4d72b27722fdd105e099d5b1cacf46692e76c388b9e6511e4dd3fb"
+ },
+ "changed_endpoints": [
+  "CYP3A4_pIC50_direct_inhibition"
+ ],
+ "unchanged_endpoints": [
+  "CYP1A2_pIC50_direct_inhibition",
+  "CYP2C9_pIC50_direct_inhibition",
+  "CYP2D6_pIC50_direct_inhibition"
+ ],
+ "stage_B": {
+  "component": "ivB2048 (interval objective, UNIFORM weights)",
+  "weight": 0.2
+ },
+ "stage_A": {
+  "features": [
+   "cyp3a4_pic50_qhts_pred",
+   "cyp3a4_pic50_chembl_pred",
+   "cyp3a4_max_response_pred",
+   "cyp3a4_log2fc_pred"
+  ],
+  "coefficients": {
+   "cyp3a4_pic50_qhts_pred": 0.029731530213809688,
+   "cyp3a4_pic50_chembl_pred": 0.03958455259925454,
+   "cyp3a4_max_response_pred": -0.03326395982864601,
+   "cyp3a4_log2fc_pred": -0.04866110557702712
+  },
+  "l2": 0.1
+ },
+ "gates": {
+  "magnitude_NN055": 0.0161,
+  "sign_consistent": "3/3",
+  "bootstrap_ci_lower": [
+   0.0003,
+   0.0023,
+   0.0023
+  ],
+  "verdict": "ALL PASS"
+ },
+ "column_stats": {
+  "mean_before": 4.888816199027416,
+  "mean_after": 4.908037710283079,
+  "sd_before": 0.9094134839186625,
+  "sd_after": 0.9232303404452812
+ },
+ "output": {
+  "path": "analysis/r23_a4_combined_20260912/OpenADMET_R23_A4_COMBINED_20260912.csv",
+  "sha256": "1893ed9d0349e1d6264d373a6cdeea32396a767773933856075f61782c8ebcf3",
+  "rows": 750
+ }
+}

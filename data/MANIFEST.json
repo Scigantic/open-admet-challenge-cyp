@@ -1,0 +1,258 @@
+{
+ "submissions": {
+  "R17": {
+   "source": "OpenADMET_R17_BEST_KNOWN_COLUMNS_20260912.csv",
+   "sha256": "d91b70b2bf4d72b27722fdd105e099d5b1cacf46692e76c388b9e6511e4dd3fb"
+  },
+  "R23": {
+   "source": "OpenADMET_R23_A4_COMBINED_20260912.csv",
+   "sha256": "1893ed9d0349e1d6264d373a6cdeea32396a767773933856075f61782c8ebcf3"
+  },
+  "R24": {
+   "source": "OpenADMET_R24_JOINT_MEMBER_HINGE_RESTORED_20260913.csv",
+   "sha256": "aeea81479f491cd80a2c324bf33ea15e910b232e1e1ec291f9161f2e1613512e"
+  },
+  "R25": {
+   "source": "OpenADMET_R25_A1_TDI_20260914.csv",
+   "sha256": "8fae881bfc3a343873d39dd1fc5dfd880f0de88a5da33da7c05232cb7896167f"
+  }
+ },
+ "members": {
+  "armA": {
+   "oof": {
+    "files": [
+     "oof_A_f0.csv",
+     "oof_A_f1.csv",
+     "oof_A_f2.csv",
+     "oof_A_f3.csv",
+     "oof_A_f4.csv"
+    ],
+    "rows": 31669
+   },
+   "blind": {
+    "files": [
+     "blind_A_f0.csv",
+     "blind_A_f1.csv",
+     "blind_A_f2.csv",
+     "blind_A_f3.csv",
+     "blind_A_f4.csv"
+    ],
+    "rows": 3750
+   }
+  },
+  "armB": {
+   "oof": {
+    "files": [
+     "oof_B_f0.csv",
+     "oof_B_f1.csv",
+     "oof_B_f2.csv",
+     "oof_B_f3.csv",
+     "oof_B_f4.csv"
+    ],
+    "rows": 31669
+   },
+   "blind": {
+    "files": [
+     "blind_B_f0.csv",
+     "blind_B_f1.csv",
+     "blind_B_f2.csv",
+     "blind_B_f3.csv",
+     "blind_B_f4.csv"
+    ],
+    "rows": 3750
+   }
+  },
+  "armC": {
+   "oof": {
+    "files": [
+     "oof_C_f0.csv",
+     "oof_C_f1.csv",
+     "oof_C_f2.csv",
+     "oof_C_f3.csv",
+     "oof_C_f4.csv"
+    ],
+    "rows": 31669
+   },
+   "blind": {
+    "files": [
+     "blind_C_f0.csv",
+     "blind_C_f1.csv",
+     "blind_C_f2.csv",
+     "blind_C_f3.csv",
+     "blind_C_f4.csv"
+    ],
+    "rows": 3750
+   }
+  },
+  "armD": {
+   "oof": {
+    "files": [
+     "oof_D_f0.csv",
+     "oof_D_f1.csv",
+     "oof_D_f2.csv",
+     "oof_D_f3.csv",
+     "oof_D_f4.csv"
+    ],
+    "rows": 31669
+   },
+   "blind": {
+    "files": [
+     "blind_D_f0.csv",
+     "blind_D_f1.csv",
+     "blind_D_f2.csv",
+     "blind_D_f3.csv",
+     "blind_D_f4.csv"
+    ],
+    "rows": 3750
+   }
+  },
+  "ivB2048": {
+   "oof": {
+    "files": [
+     "oof_ivB2048.csv"
+    ],
+    "rows": 31669
+   },
+   "blind": {
+    "files": [
+     "blind_B_f0.csv",
+     "blind_B_f1.csv",
+     "blind_B_f2.csv",
+     "blind_B_f3.csv",
+     "blind_B_f4.csv"
+    ],
+    "rows": 3750
+   }
+  },
+  "ivC2048": {
+   "oof": {
+    "files": [
+     "oof_ivC2048.csv"
+    ],
+    "rows": 31669
+   },
+   "blind": {
+    "files": [
+     "blind_C_f0.csv",
+     "blind_C_f1.csv",
+     "blind_C_f2.csv",
+     "blind_C_f3.csv",
+     "blind_C_f4.csv"
+    ],
+    "rows": 3750
+   }
+  },
+  "mu2048": {
+   "oof": {
+    "files": [
+     "oof_B_f0.csv",
+     "oof_B_f1.csv",
+     "oof_B_f2.csv",
+     "oof_B_f3.csv",
+     "oof_B_f4.csv"
+    ],
+    "rows": 31669
+   },
+   "blind": {
+    "files": [
+     "blind_B_f0.csv",
+     "blind_B_f1.csv",
+     "blind_B_f2.csv",
+     "blind_B_f3.csv",
+     "blind_B_f4.csv"
+    ],
+    "rows": 3750
+   }
+  },
+  "ii2048": {
+   "oof": {
+    "files": [
+     "oof_B_f0.csv",
+     "oof_B_f1.csv",
+     "oof_B_f2.csv",
+     "oof_B_f3.csv",
+     "oof_B_f4.csv"
+    ],
+    "rows": 31669
+   },
+   "blind": {
+    "files": [
+     "blind_B_f0.csv",
+     "blind_B_f1.csv",
+     "blind_B_f2.csv",
+     "blind_B_f3.csv",
+     "blind_B_f4.csv"
+    ],
+    "rows": 3750
+   }
+  },
+  "mt_aux8": {
+   "oof": {
+    "files": [
+     "oof_predictions.csv"
+    ],
+    "rows": 4905
+   },
+   "blind": {
+    "files": [
+     "blind_predictions_mean.csv"
+    ],
+    "rows": 750
+   }
+  },
+  "union18": {
+   "oof": {
+    "files": [
+     "oof_predictions.csv"
+    ],
+    "rows": 31670
+   },
+   "blind": {
+    "files": [
+     "blind_predictions_mean.csv"
+    ],
+    "rows": 750
+   }
+  },
+  "aux_ac50": {
+   "oof": {
+    "files": [
+     "oof_predictions.csv"
+    ],
+    "rows": 31670
+   },
+   "blind": {
+    "files": [
+     "blind_predictions_mean.csv"
+    ],
+    "rows": 750
+   }
+  },
+  "cp_interval": {
+   "oof": {
+    "files": [
+     "oof_predictions.csv"
+    ],
+    "rows": 31670
+   },
+   "blind": {
+    "files": [
+     "blind_predictions_mean.csv"
+    ],
+    "rows": 750
+   }
+  },
+  "g26_tdi_armB": {
+   "blind": {
+    "files": [
+     "blind_BG22_f0.csv",
+     "blind_BG22_f1.csv",
+     "blind_BG22_f2.csv",
+     "blind_BG22_f3.csv",
+     "blind_BG22_f4.csv"
+    ],
+    "rows": 3750
+   }
+  }
+ }
+}

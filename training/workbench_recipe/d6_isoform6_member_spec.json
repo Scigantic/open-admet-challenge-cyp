@@ -1,0 +1,26 @@
+{
+  "member_name": "cyp-reg-chemprop-2d6-isoform-reconstructed-v2",
+  "data_csv": "../parity_reset_v2_20260907/training_inputs/d6_isoform6_full.csv",
+  "blind_csv": "../scigantic_openadmet/blind.csv",
+  "expected_data_sha256": "38bc0edf5444cdeccbdc99e3f1dffe6594b865fbf1d7f3bd46e7847711fdd5db",
+  "expected_blind_sha256": "a1d1fe5db3855095de2f8aca83f5908b2d43a6dc3f420767263914b3b21ff648",
+  "expected_rows": 23264,
+  "sealed_input_manifest": {
+    "path": "training_inputs/sealed_manifest.json",
+    "sha256": "60ab3d7cdac68353fb367db6ee10e1320e9eda4f52c5b5551c0269914d05e6cd",
+    "member_key": "d6_isoform6"
+  },
+  "id_column": "Molecule_Name",
+  "smiles_column": "smiles",
+  "targets": [
+    "cyp2d6_pic50_direct_inhibition",
+    "cyp2d6_log2fc",
+    "cyp2d6_pic50_tdi_condition",
+    "cyp2d6_emax_vs_pos_ctrl_direct_inhibition",
+    "cyp2d6_pic50_chembl",
+    "cyp2d6_max_response"
+  ],
+  "task_weights": [1.0, 0.3, 0.3, 0.3, 0.3, 0.3],
+  "scored_targets": ["cyp2d6_pic50_direct_inhibition"],
+  "parity_scope": "recipe_level_only_not_exact_or_bitwise"
+}

@@ -1,0 +1,62 @@
+{
+  "member_name": "cyp-reg-chemprop-union-p30-reconstructed-v2",
+  "data_csv": "../parity_reset_v2_20260907/training_inputs/union18_full.csv",
+  "blind_csv": "../scigantic_openadmet/blind.csv",
+  "expected_data_sha256": "4f5b1976b32e082e5208a5fc4e12d36eb9765d62b963f468fb5c5987c752fe3e",
+  "expected_blind_sha256": "a1d1fe5db3855095de2f8aca83f5908b2d43a6dc3f420767263914b3b21ff648",
+  "expected_rows": 31670,
+  "sealed_input_manifest": {
+    "path": "training_inputs/sealed_manifest.json",
+    "sha256": "60ab3d7cdac68353fb367db6ee10e1320e9eda4f52c5b5551c0269914d05e6cd",
+    "member_key": "union18"
+  },
+  "id_column": "Molecule_Name",
+  "smiles_column": "smiles",
+  "targets": [
+    "cyp3a4_pic50_direct_inhibition",
+    "cyp2c9_pic50_direct_inhibition",
+    "cyp2d6_pic50_direct_inhibition",
+    "cyp1a2_pic50_direct_inhibition",
+    "cyp3a4_log2fc",
+    "cyp2c9_log2fc",
+    "cyp2d6_log2fc",
+    "cyp1a2_log2fc",
+    "cyp3a4_pic50_chembl",
+    "cyp2c9_pic50_chembl",
+    "cyp2d6_pic50_chembl",
+    "cyp1a2_pic50_chembl",
+    "cyp2c19_pic50_chembl",
+    "cyp3a4_max_response",
+    "cyp2c9_max_response",
+    "cyp2d6_max_response",
+    "cyp1a2_max_response",
+    "cyp2c19_max_response"
+  ],
+  "task_weights": [
+    0.6628257036209106,
+    1.2044342756271362,
+    1.0366363525390625,
+    1.0961034297943115,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657,
+    0.29999998211860657
+  ],
+  "scored_targets": [
+    "cyp3a4_pic50_direct_inhibition",
+    "cyp2c9_pic50_direct_inhibition",
+    "cyp2d6_pic50_direct_inhibition",
+    "cyp1a2_pic50_direct_inhibition"
+  ],
+  "parity_scope": "recipe_level_only_not_exact_or_bitwise"
+}

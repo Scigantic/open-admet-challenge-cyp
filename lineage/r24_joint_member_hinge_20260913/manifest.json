@@ -1,0 +1,133 @@
+{
+ "artifact_type": "multi_column_joint_hinge_fit_mean_sd_restored",
+ "status": "built_not_submitted",
+ "base": {
+  "path": "analysis/r23_a4_combined_20260912/OpenADMET_R23_A4_COMBINED_20260912.csv",
+  "sha256": "1893ed9d0349e1d6264d373a6cdeea32396a767773933856075f61782c8ebcf3"
+ },
+ "changed_endpoints": [
+  "CYP1A2",
+  "CYP2C9",
+  "CYP2D6"
+ ],
+ "unchanged": [
+  "CYP3A4 (kept from R23)"
+ ],
+ "per_endpoint": {
+  "CYP1A2": {
+   "members": [
+    "armA",
+    "armB",
+    "armC",
+    "armD",
+    "ivB",
+    "ivC",
+    "mu2048",
+    "ii2048",
+    "mt_aux8",
+    "union18",
+    "aux_ac50",
+    "cp_interval"
+   ],
+   "weights": {
+    "armA": 0.006100893363031058,
+    "armB": 0.00760175181639961,
+    "armC": 0.01383420102670945,
+    "armD": 0.009133457277864207,
+    "ivB": 0.013093240651974262,
+    "ivC": 0.014404698894946994,
+    "mu2048": 0.018993419655461308,
+    "ii2048": 0.01003021866378464,
+    "mt_aux8": 0.017812852982080345,
+    "union18": 0.015975600833929328,
+    "aux_ac50": 0.014599592856802244,
+    "cp_interval": 0.02066976524937622
+   },
+   "l2": 1.0,
+   "n_fit": 1390,
+   "mean_before": 4.412034913199859,
+   "mean_after": 4.412034913199859,
+   "sd_before": 0.959997439526516,
+   "sd_after": 0.959997439526516
+  },
+  "CYP2C9": {
+   "members": [
+    "armA",
+    "armB",
+    "armC",
+    "armD",
+    "ivB",
+    "ivC",
+    "mu2048",
+    "ii2048",
+    "mt_aux8",
+    "union18",
+    "aux_ac50",
+    "cp_interval"
+   ],
+   "weights": {
+    "armA": 0.03777509915940476,
+    "armB": 0.04925583685815761,
+    "armC": 0.027771668471597268,
+    "armD": 0.017565570507850455,
+    "ivB": 0.027485113751191073,
+    "ivC": 0.009837778591618945,
+    "mu2048": 0.020759430769629585,
+    "ii2048": 0.023978226718709035,
+    "mt_aux8": 0.04930811858088238,
+    "union18": 0.06424307390729428,
+    "aux_ac50": 0.03361294383212776,
+    "cp_interval": 0.04065388992922372
+   },
+   "l2": 0.1,
+   "n_fit": 1275,
+   "mean_before": 4.83,
+   "mean_after": 4.830000000000001,
+   "sd_before": 0.710385859063476,
+   "sd_after": 0.710385859063476
+  },
+  "CYP2D6": {
+   "members": [
+    "armA",
+    "armB",
+    "armC",
+    "armD",
+    "ivB",
+    "ivC",
+    "mu2048",
+    "ii2048",
+    "mt_aux8",
+    "union18",
+    "aux_ac50",
+    "cp_interval"
+   ],
+   "weights": {
+    "armA": 0.057684301040841206,
+    "armB": 0.06168681527373775,
+    "armC": 0.02248534657746293,
+    "armD": -0.0004048222821915233,
+    "ivB": 0.03955490488579709,
+    "ivC": 0.03833186473706721,
+    "mu2048": 0.052160561994292934,
+    "ii2048": 0.03451997056811291,
+    "mt_aux8": 0.06262701557301738,
+    "union18": 0.0476093843126731,
+    "aux_ac50": 0.04988433771548946,
+    "cp_interval": 0.04454384815140172
+   },
+   "l2": 0.1,
+   "n_fit": 1441,
+   "mean_before": 3.5757525689581224,
+   "mean_after": 3.5757525689581224,
+   "sd_before": 0.8650042246227552,
+   "sd_after": 0.8650042246227552
+  }
+ },
+ "evidence": "analysis/hinge_stack_all_members_20260913/ -- positive at 3/3 strata on 4/4 endpoints; permutation p=0.000 on CYP3A4@0.55 and CYP1A2@0.45",
+ "risk": "CYP2D6 is the largest gain on the least reliable validator and has inverted live twice",
+ "output": {
+  "path": "analysis/r24_joint_member_hinge_20260913/OpenADMET_R24_JOINT_MEMBER_HINGE_RESTORED_20260913.csv",
+  "sha256": "aeea81479f491cd80a2c324bf33ea15e910b232e1e1ec291f9161f2e1613512e",
+  "rows": 750
+ }
+}

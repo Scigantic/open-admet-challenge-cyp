@@ -1,0 +1,12 @@
+# Rebuilding the submission from the frozen member predictions
+# (notebooks/reproduce_r25.ipynb or scripts/build_r25.py). CPU, a few minutes.
+pandas>=2.2
+numpy>=1.26
+scipy>=1.11
+nbclient>=0.9
+ipykernel>=6
+
+# Retraining a member (training/) additionally needs:
+#   chemprop>=2.2,<3   lightning>=2.4   rdkit>=2024.3   datasets>=2.19   torch
+# The scored members were trained with chemprop 2.3.1, torch 2.6 (CUDA 12.4),
+# lightning 2.x, in an image based on pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime.

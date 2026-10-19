@@ -1,0 +1,64 @@
+{
+ "artifact_type": "isolated_single_column_bet",
+ "status": "built_not_submitted",
+ "base": {
+  "path": "analysis/r17_revert_20260912/OpenADMET_R17_BEST_KNOWN_COLUMNS_20260912.csv",
+  "sha256": "d91b70b2bf4d72b27722fdd105e099d5b1cacf46692e76c388b9e6511e4dd3fb"
+ },
+ "changed_endpoints": [
+  "CYP3A4_pIC50_direct_inhibition"
+ ],
+ "unchanged_endpoints": [
+  "CYP1A2_pIC50_direct_inhibition",
+  "CYP2C9_pIC50_direct_inhibition",
+  "CYP2D6_pIC50_direct_inhibition"
+ ],
+ "method": "hinge(metric)-fitted linear correction on 4 discarded aux heads",
+ "features": [
+  "cyp3a4_pic50_qhts_pred",
+  "cyp3a4_pic50_chembl_pred",
+  "cyp3a4_max_response_pred",
+  "cyp3a4_log2fc_pred"
+ ],
+ "coefficients": {
+  "cyp3a4_pic50_qhts_pred": 0.031552569932444076,
+  "cyp3a4_pic50_chembl_pred": 0.04059144072870381,
+  "cyp3a4_max_response_pred": -0.031071072488075713,
+  "cyp3a4_log2fc_pred": -0.05260705604689401
+ },
+ "l2": 0.1,
+ "scaler": {
+  "mean": [
+   0.4166117304886402,
+   0.3726132795509345,
+   -38.646462511011784,
+   -2.0141713692777032
+  ],
+  "sd": [
+   0.33297581770205675,
+   0.34812293976338166,
+   26.915747214888846,
+   1.0357715366553384
+  ],
+  "note": "fitted on OOF, applied unchanged to blind"
+ },
+ "n_oof_fit_rows": 2326,
+ "blind_correction": {
+  "mean": 0.018634872638933903,
+  "sd": 0.055409762908296516,
+  "min": -0.10616394689570285,
+  "max": 0.1796970552365092
+ },
+ "column_stats": {
+  "mean_before": 4.888816199027416,
+  "mean_after": 4.90745107166635,
+  "sd_before": 0.9094134839186625,
+  "sd_after": 0.9501935903051758
+ },
+ "evidence": "analysis/auxhead_hinge_fit_20260912/ -- gain +0.0071 at NN>=0.55 (n=430), permutation p=0.000 (0/40 nulls reached it), bootstrap CI lower bound -0.0012 (gate not cleared)",
+ "output": {
+  "path": "analysis/r22_a4_auxhead_hinge_20260912/OpenADMET_R22_A4_AUXHEAD_HINGE_20260912.csv",
+  "sha256": "addfbd656653eb6f82b61391b02cc50d42b5bd902074e2ed7da689c5b7dd42a0",
+  "rows": 750
+ }
+}

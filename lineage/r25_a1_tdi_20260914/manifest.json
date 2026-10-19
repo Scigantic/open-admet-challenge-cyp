@@ -1,0 +1,15 @@
+{
+ "artifact": "R25",
+ "status": "built_not_submitted",
+ "base": "R24",
+ "changed_columns": [
+  "CYP1A2_pIC50_direct_inhibition"
+ ],
+ "blend_weight": 0.2,
+ "component": "G26 = arm B with 4 TDI-condition aux heads (26 targets)",
+ "sha256": "8fae881bfc3a343873d39dd1fc5dfd880f0de88a5da33da7c05232cb7896167f",
+ "spearman_vs_r24": 0.9983499632888235,
+ "oof_additional_gain_nn050": 0.0065,
+ "oof_ci_lo": -0.0085,
+ "note": "OOF cannot certify at n=175; submitted as a measurement"
+}

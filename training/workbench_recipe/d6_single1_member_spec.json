@@ -1,0 +1,19 @@
+{
+  "member_name": "cyp-reg-chemprop-2d6-single-reconstructed-v2",
+  "data_csv": "../parity_reset_v2_20260907/training_inputs/d6_single1_full.csv",
+  "blind_csv": "../scigantic_openadmet/blind.csv",
+  "expected_data_sha256": "345f56b289ada8e95a057590134205df78f0bf36eb16747551344ac5e24a51aa",
+  "expected_blind_sha256": "a1d1fe5db3855095de2f8aca83f5908b2d43a6dc3f420767263914b3b21ff648",
+  "expected_rows": 1493,
+  "sealed_input_manifest": {
+    "path": "training_inputs/sealed_manifest.json",
+    "sha256": "60ab3d7cdac68353fb367db6ee10e1320e9eda4f52c5b5551c0269914d05e6cd",
+    "member_key": "d6_single1"
+  },
+  "id_column": "Molecule_Name",
+  "smiles_column": "smiles",
+  "targets": ["cyp2d6_pic50_direct_inhibition"],
+  "task_weights": [1.0],
+  "scored_targets": ["cyp2d6_pic50_direct_inhibition"],
+  "parity_scope": "recipe_level_only_not_exact_or_bitwise"
+}

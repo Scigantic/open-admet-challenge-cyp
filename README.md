@@ -5,7 +5,103 @@ Aaron Kanzer · [aaron@scigantic.com](mailto:aaron@scigantic.com)
 Predicting pIC50 against four cytochrome P450 isoforms (CYP1A2, CYP2C9, CYP2D6, CYP3A4) for
 750 blind compounds, scored by macro-averaged Soft-Threshold Relative Absolute Error.
 
-**Interim leaderboard, regression track: rank 11 of 219.**
+**Interim leaderboard (2026-09-25), regression track: rank 11 of 219, macro ST-RAE 0.4436.**
+
+This repository is the method report and the complete recipe: the submitted file, the
+frozen predictions of every model behind it, the code that combines them, the training
+tables and training scripts, and the scored history of every upload. MIT-0 licence.
+
+## Reproduce the submission
+
+```
+pip install -r requirements.txt
+python scripts/build_r25.py
+```
+
+`scripts/build_r25.py` (and the same code with commentary in
+`notebooks/reproduce_r25.ipynb`) rebuilds the uploaded CSV from the frozen member
+predictions in `data/members/` in about three seconds on a laptop, with no training and
+no GPU, and checks it against the sha256 of the file that was submitted
+(`8fae881b…167f`). The notebook is committed with its outputs; the final cell prints
+`byte-identical: True`.
+
+| step | column(s) changed | what happens | live macro |
+|---|---|---|---|
+| R17 | incumbent | best already-scored column per endpoint from earlier rounds | 0.4620 |
+| R23 | CYP3A4 | blend in the interval-objective CheMeleon member, then a hinge-fitted correction on four auxiliary heads | |
+| R24 | CYP1A2, CYP2C9, CYP2D6 | joint hinge-fitted linear combination of all twelve members, mean and sd restored to the incumbent | 0.4453 |
+| R25 | CYP1A2 | 0.2 blend of a CheMeleon arm trained with four extra TDI-condition heads, mean and sd restored | 0.4436 |
+
+Per endpoint, live ST-RAE of R25: CYP1A2 0.4739, CYP2C9 0.3802, CYP2D6 0.5442, CYP3A4 0.3762.
+
+## What is in the repo
+
+```
+data/submissions/      R17, R23, R24, R25 as uploaded (sha256 in data/MANIFEST.json)
+data/members/<name>/   out-of-fold and blind predictions of the twelve members and of g26_tdi_armB
+data/oof_base/         per endpoint: training compounds, label, credible interval, incumbent OOF prediction
+data/training/         the training tables, fold assignment, sample weights and interval bounds
+training/              the scripts that trained the members, and training/README.md
+lineage/               the build scripts of R22 to R25 and R28 as they ran, with their result notes
+docs/submission_history.md   every scored upload, per-endpoint, and how well offline gains transferred
+notebooks/, scripts/   the rebuild
+```
+
+## The twelve members
+
+Two backbones, both directed message-passing networks over the molecular graph via
+[Chemprop](https://github.com/chemprop/chemprop), all trained as multi-task regressors
+over the 22-column table described in `training/README.md` (organizer potency, organizer
+single-concentration fold change, ChEMBL potency, PubChem qHTS maximum response and AC50),
+five scaffold folds each. 364 SageMaker training jobs were run in total; these are the
+twelve that earned a place.
+
+| member | backbone | init | objective | sample weights | heads |
+|---|---|---|---|---|---|
+| armA | Chemprop d_h 700 / depth 5 | random | MAE | inverse-variance | 22 |
+| armB | Chemprop d_h 2048 / depth 4 | random | MAE | inverse-variance | 22 |
+| armC | as B | [CheMeleon](https://github.com/JacksonBurns/chemeleon) | MAE | inverse-variance | 22 |
+| armD | as B | organizers' CYP-finetuned CheMeleon | MAE | inverse-variance | 22 |
+| ivB2048 | as B | random | interval hinge on scored heads | uniform | 22 |
+| ivC2048 | as C | CheMeleon | interval hinge | uniform | 22 |
+| mu2048 | as B | random | MAE | uniform | 22 |
+| ii2048 | as B | random | interval hinge | inverse-variance | 22 |
+| mt_aux8 | Chemprop d_h 700 / depth 5 | random | MAE | none | 8 (organizer only) |
+| union18 | Chemprop d_h 700 / depth 5 | random | MAE | none | 18 |
+| aux_ac50 | Chemprop d_h 700 / depth 5 | random | MAE | inverse-variance | 22 |
+| cp_interval | Chemprop d_h 700 / depth 5 | random | interval hinge | inverse-variance | 22 |
+
+`mt_aux8` and `union18` are recipe-level reproductions of the public
+[SuperCowPowers Workbench](https://github.com/SuperCowPowers/workbench) CYP entry, run on
+our own reconciled tables; the pinned recipe is in
+`training/workbench_recipe/FROZEN_REPRODUCIBILITY_CONTRACT.json`. The remaining ten are
+ours. `g26_tdi_armB`, used only in R25, is arm B retrained with four extra heads for the
+organizers' TDI-condition pIC50.
+
+The combiner is in `scripts/build_r25.py`: per endpoint, weights over the twelve members'
+deltas from the incumbent are fitted by Powell minimisation of the ST-RAE numerator (the
+hinge outside each compound's credible interval) plus an L2 penalty, on out-of-fold rows;
+negative weights are allowed; the fitted column is then restored to the incumbent's mean
+and standard deviation so that only the reordering is kept. The fitted weights are
+printed by the script and shown in the notebook.
+
+## Disclosures
+
+- External data: ChEMBL (CC BY-SA 3.0) and PubChem bioassays (public domain). No
+  proprietary data. Both were joined on InChIKey connectivity and purged against the blind
+  set; one blind compound remains in the `union18` table with AID 1851 maximum-response
+  values only (no potency label), kept for parity with the public recipe. Details in
+  `training/README.md`.
+- The interim rank above is from the 2026-09-25 interim leaderboard. Submissions after
+  R25 (R28, 2026-09-25, macro 0.4438) did not improve on it and R25 was restored as the
+  live entry on 2026-09-26.
+- Out-of-fold numbers in the notebook are on the rows the weights were fitted on and read
+  optimistic; the per-endpoint transfer from offline gain to board gain is measured in
+  `docs/submission_history.md` (CYP3A4 6 of 6 calls right, CYP2D6 2 of 5).
+
+The rest of this page is the write-up as it was filed for the interim leaderboard.
+
+---
 
 ![ST-RAE by endpoint](chart_gap.svg)
 

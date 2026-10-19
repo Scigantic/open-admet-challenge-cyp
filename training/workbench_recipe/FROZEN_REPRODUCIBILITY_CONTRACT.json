@@ -1,0 +1,143 @@
+{
+  "artifact_type": "scigantic_briford_recipe_reproduction_contract",
+  "schema_version": 1,
+  "status": "FROZEN_FOR_EXECUTION",
+  "parity_scope": "recipe_level_only_not_historical_bitwise_identity",
+  "public_reference": {
+    "team": "briford",
+    "published_live_score": 0.4377997714479094,
+    "workbench_repository": "https://github.com/SuperCowPowers/workbench",
+    "score_era_commit": "34689b183c943ffa1ef7d589c45962ba8b713697",
+    "final_recipe_commit": "8c72c7559471febaf0962fd551b4eaab8db3a136"
+  },
+  "frozen_code": {
+    "runner": {
+      "path": "train_briford_workbench.py",
+      "sha256": "3a043521f8f64907843df675d130319fe2ad90e3ec0d0cdcf53829a0974af39a"
+    },
+    "launcher": {
+      "path": "launch_briford_sagemaker.py",
+      "sha256": "c55caf20922bf25f7c8d9680c4f7ff0c8390075b5d027bfe6ef4a5f2915e8d68"
+    },
+    "collector": {
+      "path": "collect_briford_recipe.py",
+      "sha256": "c619456162bdfd8b438e249f6d1d9968a2e0e020f7805fc1b4d804a8dbec89b3"
+    },
+    "oof_interval_evaluator": {
+      "path": "evaluate_briford_oof_strae.py",
+      "sha256": "21e00b756299d52dc8d37ac819323c116b171d6aa40e8cc9f527a4c314091b1b"
+    }
+  },
+  "sealed_data_manifest": {
+    "path": "training_inputs/sealed_manifest.json",
+    "sha256": "60ab3d7cdac68353fb367db6ee10e1320e9eda4f52c5b5551c0269914d05e6cd",
+    "schema": "openadmet_briford_corrected_full_data_v2"
+  },
+  "members": {
+    "union18": {
+      "rows": 31670,
+      "labels": 161400,
+      "data_sha256": "4f5b1976b32e082e5208a5fc4e12d36eb9765d62b963f468fb5c5987c752fe3e",
+      "spec_sha256": "1de8c1c8c60a70460e82a0311acf1e90444276b8c25706063753cbf0539f7fbf",
+      "fold_assignment_sha256": "910c4c803672e2dc6bad78596aa3fe52f74508bb9637e9921acf99f5d7c564e9",
+      "dry_run_manifest_sha256": "0546fb42e4721e374d03015eb9c8b0863fae4073478b143874a939819fb2d322",
+      "job_name": "oadmet-briford-u18-v2-20260907"
+    },
+    "mt_aux8": {
+      "rows": 4905,
+      "labels": 24025,
+      "data_sha256": "804076093eef97ac4f05beebc7b0d57721395373d13ef4c37c38bdf5d7bda264",
+      "spec_sha256": "d18600d0028ada56151c2257dd06e52c867bf629683cf01eda8ca83d2b2e4dd8",
+      "fold_assignment_sha256": "038e2213cc3ef5da07905c6c64e4e093e4989b943ab41a4e38531fdb942b9258",
+      "dry_run_manifest_sha256": "0d657b53f1bbc93d5f8d1489ad951962e441a498247808ef46f173b352259aab",
+      "job_name": "oadmet-briford-aux8-v2-20260907"
+    },
+    "d6_isoform6": {
+      "rows": 23264,
+      "labels": 33407,
+      "data_sha256": "38bc0edf5444cdeccbdc99e3f1dffe6594b865fbf1d7f3bd46e7847711fdd5db",
+      "spec_sha256": "75fc4f6c03f54a6c3f969e087aea790a99745e08f6491849290a38fa30f73de2",
+      "fold_assignment_sha256": "dccbe019072a2069246e45617691514a89b05fea5e38bb951216203ac5877311",
+      "dry_run_manifest_sha256": "1b05252e46ef73927a9a4f3aa75baf4e18010b233f5ce1d905e360766873aed6",
+      "job_name": "oadmet-briford-d6iso-v2-20260907"
+    },
+    "d6_single1": {
+      "rows": 1493,
+      "labels": 1493,
+      "data_sha256": "345f56b289ada8e95a057590134205df78f0bf36eb16747551344ac5e24a51aa",
+      "spec_sha256": "c31ddf31efc94f675f7d203582b8cdd2146e1c953afff5bc543c5252f39a778e",
+      "fold_assignment_sha256": "22646d7b34136f80e74318a6443662a368729f47d96b0ec0ec3704c25079da01",
+      "dry_run_manifest_sha256": "a10ab024d720b666bcbaba14fe4d1b8333f961e001f20b96b9904cc4dabd0d7f",
+      "job_name": "oadmet-briford-d6single-v2-20260907"
+    }
+  },
+  "training_recipe": {
+    "folds": 5,
+    "split": "joint scaffold split",
+    "split_seed": 42,
+    "fold_seeds": [42, 43, 44, 45, 46],
+    "model": "random-init Chemprop BondMessagePassing",
+    "hidden_dim": 700,
+    "depth": 5,
+    "dropout": 0.1,
+    "aggregation": "NormAggregation(100)",
+    "batch_norm": true,
+    "ffn_hidden_dim": 300,
+    "ffn_layers": 2,
+    "loss": "MAE with positional task weights",
+    "batch_size": 64,
+    "max_epochs": 400,
+    "patience": 40,
+    "warmup_epochs": 2,
+    "learning_rates": [0.0001, 0.001, 0.0001],
+    "precision": "16-mixed",
+    "checkpoint": "minimum val_loss"
+  },
+  "runtime": {
+    "image": "<aws-account-id>.dkr.ecr.us-east-1.amazonaws.com/scigantic-finetune-job@sha256:90d5f82115d957cf1f2eb361847ec7b7d5f357aebbb7528d5e40f118c4fbbf32",
+    "image_verification_sha256": "b23326b391ce774886e6ef7282661a28fd307052cad69ab5904c5a99dcc5ba71",
+    "python": "3.12.3",
+    "chemprop": "2.3.0",
+    "torch": "2.13.0+cu130",
+    "instance_type": "ml.g6.2xlarge",
+    "execution_order": ["union18", "mt_aux8", "d6_isoform6", "d6_single1"],
+    "reason_for_serial_execution": "account quota permits one ml.g6.2xlarge training instance"
+  },
+  "blind_input": {
+    "rows": 750,
+    "sha256": "a1d1fe5db3855095de2f8aca83f5908b2d43a6dc3f420767263914b3b21ff648"
+  },
+  "offline_interval_evaluation": {
+    "source_path": "../clean_slate_winning_system_20260907/exact_briford_replication/d6_specialist/source_cache/inhibition.csv",
+    "source_sha256": "95576058689db7537458cde2615f8d72a84748cea9d4a2d73fe3c287f7c1cf0c",
+    "source_rows": 4905,
+    "metric": "organizer ST-RAE on honest scaffold OOF predictions",
+    "placement_used": false
+  },
+  "ensemble": {
+    "CYP1A2": ["union18", "mt_aux8"],
+    "CYP2C9": ["union18", "mt_aux8"],
+    "CYP2D6": ["union18", "mt_aux8", "d6_isoform6", "d6_single1"],
+    "CYP3A4": ["union18", "mt_aux8"],
+    "reduction": "unweighted arithmetic mean of raw member predictions"
+  },
+  "published_placement": {
+    "operation_order": ["affine mean/sample-sd placement", "floor at 1.0"],
+    "CYP1A2": {"mean": 4.412, "sample_sd": 1.169409},
+    "CYP2C9": {"mean": 4.83, "sample_sd": 0.922638},
+    "CYP2D6": {"mean": 3.57, "sample_sd": 0.9},
+    "CYP3A4": {"mean": 4.88, "sample_sd": 1.082472}
+  },
+  "incumbent": {
+    "name": "R08",
+    "path": "../winning_system_20260904/OpenADMET_REGRESSION_INTERVAL_A1_C9_ON_CYPLEBRITY_20260904.csv",
+    "sha256": "6eab01688c593b5f6dc7abca677b4b3dd25a47f87059e6ec10777de9c12914cf",
+    "live_macro_st_rae": 0.4734255879786033,
+    "preservation_rule": "byte-for-byte; never overwrite or blend into the parity candidate"
+  },
+  "submission_policy": {
+    "candidate_must_have_750_rows": true,
+    "candidate_must_pass_validation_validate_activity_submission": true,
+    "challenge_upload_performed_by_this_contract": false
+  }
+}
