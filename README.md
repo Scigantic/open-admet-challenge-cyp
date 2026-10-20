@@ -21,9 +21,32 @@ python scripts/build_r25.py
 `scripts/build_r25.py` (and the same code with commentary in
 `notebooks/reproduce_r25.ipynb`) rebuilds the uploaded CSV from the frozen member
 predictions in `data/members/` in about three seconds on a laptop, with no training and
-no GPU, and checks it against the sha256 of the file that was submitted
-(`8fae881b…167f`). The notebook is committed with its outputs; the final cell prints
-`byte-identical: True`.
+no GPU, and checks it against the submitted file: it prints the largest disagreement over
+the 3,000 predictions, both sha256s, and whether the bytes match
+(`8fae881b…167f`). The notebook is committed with the outputs of a run that matched the
+bytes.
+
+### Reproducibility
+
+The rebuild agrees with the submitted file to within a few millionths of a pIC50 unit
+everywhere it has been run. Whether the bytes match depends on the BLAS that numpy is
+linked against, because `scipy.optimize.minimize(method="Powell")` is derivative-free: it
+stops when a line-search pass stops paying, and that point moves with the order the
+floating-point sums accumulate.
+A weight landing on 0.0383 instead of 0.0384 shifts 750 predictions by a millionth of a log
+unit, which changes every byte after the sixth decimal.
+
+| environment | largest disagreement | bytes |
+|---|---|---|
+| macOS arm64, Accelerate, python 3.14.6, numpy 2.5.2, pandas 3.0.5, scipy 1.18.1 | 8.9e-16 | identical |
+| macOS arm64, Accelerate, python 3.12.14, numpy 2.0.2, pandas 2.2.3, scipy 1.14.1 | 8.9e-16 | identical |
+| linux arm64, OpenBLAS, python 3.11.17, numpy 2.0.2, pandas 2.2.3, scipy 1.14.1 | 5.2e-06 | differ |
+| linux x86_64, OpenBLAS, python 3.11.10, numpy 2.0.2, pandas 2.2.3, scipy 1.14.1 | 3.4e-06 | differ |
+
+The scored quantities do not move: the fitted weights agree to three decimals as printed,
+and the out-of-fold ST-RAE of every step is identical to four decimals across all four
+rows. The scripts fail only if the disagreement exceeds 1e-4, which would mean a real bug
+rather than arithmetic drift.
 
 | step | column(s) changed | what happens | live macro |
 |---|---|---|---|
