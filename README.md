@@ -11,6 +11,17 @@ This repository is the method report and the complete recipe: the submitted file
 frozen predictions of every model behind it, the code that combines them, the training
 tables and training scripts, and the scored history of every upload. MIT-0 licence.
 
+## Method reports
+
+- [`docs/regression_method_report.md`](docs/regression_method_report.md) covers the
+  regression track: what ST-RAE actually optimizes, the per-endpoint transfer table the
+  submission is assembled from, and the calibration offset that turned out to be the
+  largest effect in the project, including why cross-validation has the wrong sign on it.
+- [`docs/structure_method_report.md`](docs/structure_method_report.md) covers the CYP3A4
+  ligand-complex structure track: the co-folding setup, and the ablations on alignment
+  depth and composition, sampler settings, the pocket constraint and pose selection,
+  most of which are negative results.
+
 ## Reproduce the submission
 
 ```
