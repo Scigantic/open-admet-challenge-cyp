@@ -1,21 +1,19 @@
 # How R25 was built
 
-**R25 is a file, and the name is ours.** The OpenADMET CYP inhibition blind challenge
-gives you 750 compounds with the answers withheld and accepts a CSV: one row per
-compound, four columns of predicted pIC50, one for each of CYP1A2, CYP2C9, CYP2D6 and
-CYP3A4. We built candidates and numbered them in the order we made them, R00 upward, so
-"R25" means one specific such CSV. The numbers are internal build ids, not anything the
-organizers know about, and they skip, because we built and checked more candidates than
-we ever sent.
+R25 is our submission to the OpenADMET CYP inhibition blind challenge. The challenge
+gives out 750 compounds with the answers withheld and takes a CSV: one row per compound,
+four columns of predicted pIC50, one for each of CYP1A2, CYP2C9, CYP2D6 and CYP3A4. R25
+is our own build number. We numbered candidates R00 upward as we made them, and the
+numbers skip because we built more than we sent.
 
-R25 is the one worth writing up because it is the last entry our modeling produced. It
-scored a macro ST-RAE of 0.4436 on the public leaderboard, where lower is better, against
-0.4620 for the file it was built from. This document is that construction: the training
-tables, the twelve models behind it, the loss function that made the difference, and the
-decision layer that turns twelve sets of predictions into those four columns.
+R25 is the last of those files that our modeling produced. It scored a macro ST-RAE of
+0.4436 on the public leaderboard, lower being better, against 0.4620 for the file it was
+built from. This document is how it was built: the training tables, the twelve models
+behind it, the loss function that made the difference, and the decision layer that turns
+twelve sets of predictions into those four columns.
 
-**R25 is not what is on the board today.** The live entry scores 0.4283, and it is R25
-with two constants added to it:
+The entry live on the board is not R25 itself. It is R25 with two constants added and
+one column replaced, and it scores 0.4283:
 
 | column | the live file, measured against R25 |
 |---|---|
@@ -24,10 +22,10 @@ with two constants added to it:
 | CYP2D6 | a different column, from a later model |
 | CYP3A4 | byte-identical |
 
-One constant per column turned out to be worth more than any modeling change in the
-whole project, and section 8 explains why, and why cross-validation cannot find it. But
-it is two numbers read off a leaderboard, not a method. R25 is the method, so R25 is what
-this document builds.
+Those two constants gained more than any modeling change in the project. Section 8 says
+why, and why cross-validation cannot find them. They are also two numbers read off a
+leaderboard, so there is nothing to document about them beyond that. The modeling is R25,
+which is what this document covers.
 
 Everything here runs from this repository. `scripts/build_r25.py` rebuilds R25 from
 frozen member predictions in about three seconds, with no training and no GPU, and checks
@@ -58,9 +56,9 @@ fitted combination of member predictions on top of the previous column.
 
 ### What R17 is
 
-R17 is where the chain starts, and it needs stating plainly because it is not a model.
-It is a CSV file: 750 rows, one column per endpoint. Its four columns come from four
-different earlier submissions.
+R17 is the file the chain starts from. It is not a model. It is a CSV of 750 rows and one
+column per endpoint, and its four columns were copied out of four different earlier
+submissions.
 
 The leaderboard reports a score for each endpoint separately, not only the macro
 average. After eighteen entries that makes the per-endpoint best known, so R17 was
@@ -74,11 +72,10 @@ endpoint:
 | CYP2D6 | R08, 09-06 | the R06 base column, with no interval blend | 0.5694 |
 | CYP3A4 | R14, 09-11 | mt_aux8 into all four endpoints, weights chosen on nested folds | 0.4014 |
 
-That is all of it: no training, no fitting, four columns pasted side by side. It scored
-macro 0.4620, which is exactly the mean of the four cells above. Hitting the predicted
-macro to the last digit is the useful part, because it confirms the board really does
-score four independent columns and re-scores an untouched one identically. Every later
-step relies on that.
+No training and no fitting went into it. It scored macro 0.4620, exactly the mean of the
+four cells above, which confirms the board scores four independent columns and re-scores
+an untouched column identically. Every later step depends on that, because it is what
+lets a one-column change be read as a measurement of that column.
 
 So when the rest of this document says a step is fitted "on top of the incumbent", the
 incumbent is R17 and its macro is 0.4620. Sections 4 to 6 are the work of taking that to
@@ -202,8 +199,7 @@ file. The full command line for each member is in `training/README.md`.
 
 ## 4. The interval objective
 
-This is the one modeling idea in the project that paid for itself, and it is worth
-reading closely.
+This is the one modeling idea in the project that paid for itself.
 
 The metric does not reward hitting the label. It rewards landing anywhere inside the
 label's credible interval, and charges distance to the nearer edge otherwise. Training
@@ -360,7 +356,7 @@ The L2 values are not tuned on the fit itself. They are the modal choice across 
 inner folds, which is why CYP1A2 carries ten times the penalty of the other two: its fit
 was the least stable across folds.
 
-One mismatch is worth flagging, because it is visible in the code above. Out of fold
+There is a mismatch in the code above. Out of fold
 `base` is the R08-like twin at all three endpoints, but on the blind set `base_b` is
 R17's column, and for CYP2C9 those are not the same recipe: R17 took that column from
 R10, two submissions later. So the coefficients are fitted on how members differ from an

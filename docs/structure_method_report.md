@@ -13,8 +13,8 @@ Code blocks are from the files named, abridged where a line does not carry the i
 
 ## 1. The input
 
-One YAML per compound. There are three chains, and the arrangement matters more than
-anything else in this document:
+One YAML per compound, with three chains. How those chains are arranged does more for
+the score than anything else in this document:
 
 ```yaml
 version: 1
