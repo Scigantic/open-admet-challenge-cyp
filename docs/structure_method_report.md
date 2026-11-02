@@ -1,20 +1,21 @@
-# How the CYP3A4 complexes were built
+# How our structure submission was built
 
-The structure entry for the OpenADMET CYP inhibition blind challenge predicts the
-CYP3A4 ligand complex for 20 blind compounds. The submission is a zip of 20 PDB files,
-one per compound, each holding a protein chain, a heme and a posed ligand. It is scored
-by lDDT-PLI, a recovery rate over protein-ligand atom contacts, where higher is better;
-the bundle this document describes scores 0.4565. This document is the construction: how an input is assembled, how the run is
-packaged, how one pose is chosen out of many, how the submission file is cleaned, and
-how we verify the thing we are about to upload is chemically the molecule we were asked
-about.
+This is our entry in the structure track of the OpenADMET CYP inhibition blind challenge.
+The task is to predict how 20 blind compounds sit in CYP3A4. The submission is a zip of
+20 PDB files, one per compound, each holding a protein chain, a heme and a posed ligand.
+It is scored by lDDT-PLI, a recovery rate over protein-ligand atom contacts, where higher
+is better, and the bundle described here scores 0.4565.
+
+This document is how it was built: how an input is assembled, how the run is packaged,
+how one pose is chosen out of many, how the submission file is cleaned, and how we check
+that the thing we are about to upload is chemically the molecule we were asked about.
 
 Code blocks are from the files named, abridged where a line does not carry the idea.
 
 ## 1. The input
 
-One YAML per compound, with three chains. How those chains are arranged does more for
-the score than anything else in this document:
+One YAML per compound, with three chains. How those chains are arranged does more for the
+score than anything else here:
 
 ```yaml
 version: 1
@@ -44,8 +45,8 @@ placed where the heme should be scores contacts that cannot exist. Declaring it 
 chain B lets the co-folding model place the cofactor and the ligand in the same pass.
 
 **The ligand goes in as SMILES, not as a CCD code**, because the blind compounds have no
-CCD entry, and because SMILES is how stereochemistry is specified. Section 5 is about
-taking that seriously.
+CCD entry, and because SMILES is how stereochemistry is specified. Section 5 checks that
+the stereochemistry survived into the coordinates.
 
 **The pocket constraint** keeps the binder within 8 Angstrom of four active-site
 residues. These are construct numbering; the construct is offset by 21 from canonical
@@ -123,8 +124,8 @@ during diffusion. Section 6 records what happens without them.
 The alignment comes from the ColabFold MMseqs2 server, which Boltz calls itself under
 `--use_msa_server`: `uniref.a3m` concatenated with
 `bfd.mgnify30.metaeuk30.smag30.a3m`, 14,364 sequences for this construct. One
-undocumented detail worth knowing if you plan an MSA experiment on this pipeline: every
-alignment Boltz obtains this way is MMseqs2-filtered. `mmseqs2.py` defaults
+undocumented detail, if you plan an MSA experiment on this pipeline: every alignment
+Boltz obtains this way is MMseqs2-filtered. `mmseqs2.py` defaults
 `use_filter=True` and `main.py` calls `run_mmseqs2(..., use_env=True, use_pairing=False)`
 without overriding it, so no command-line flag reaches the unfiltered alignment. To test
 that you have to fetch the alignment out of band and pass it as a file.
@@ -203,12 +204,11 @@ def clean_pdb(text: str) -> str:
     return "\n".join(out) + "\n"
 ```
 
-Filtering on **chain** and not on residue name is the whole trick. Anything that
-selects the ligand by `resname LIG` picks up the heme as well, silently, and produces a
-43-atom ligand that still scores.
+Filter on **chain**, not on residue name. Anything that selects the ligand by
+`resname LIG` picks up the heme as well, silently, and produces a 43-atom ligand that
+still scores.
 
-Then the preflight, which is the part worth copying. Every assertion below is one we
-once needed:
+Then the preflight. Every assertion below is one we needed at some point:
 
 ```python
 assert len(payload) == 20, f"expected 20 poses, built {len(payload)}"
@@ -291,13 +291,11 @@ votes = Counter(relationship(Chem.RemoveHs(r3), ..., conf_id=c) for c in cids)
 want = votes.most_common(1)[0][0]            # 12 of 12 trans for this compound
 ```
 
-Our shipped pose is trans and correct, as are the other three. The point is that a
-CIP-code comparison is the obvious way to run this audit and it passes the ring case
-vacuously, so the audit has to branch on topology.
+Our shipped pose is trans and correct, as are the other three. A CIP-code comparison is
+the obvious way to run this audit, and it passes the ring case without testing anything,
+so the audit has to branch on topology.
 
 ## 6. What moved the result, and what did not
-
-Briefly, since the construction above is the subject of this document.
 
 The one generator setting that matters is `--use_potentials`. The sampler knob
 `--step_scale`, which is the per-step interpolation gain toward the denoised estimate
@@ -313,7 +311,7 @@ homolog coverage is already saturated. The pocket constraint is not what keeps p
 shallow, which we established by scoring a genuinely unconstrained run and finding its
 poses no deeper.
 
-The measurement that explains the shape of that list: we ran an arm byte-identical to
+One measurement explains why that list is mostly nulls. We ran an arm byte-identical to
 its own control, same seed, and it scored 0.0143 lDDT-PLI away. That is the pipeline's
 run-to-run nondeterminism, it is larger than every apparent gain we measured anywhere,
 and it is larger than the gap between our entry and first place. An internal benchmark

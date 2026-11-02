@@ -38,10 +38,10 @@ Every code block below is from the file it is attributed to, abridged where a li
 not carry the idea. The authoritative versions are `scripts/build_r25.py`,
 `training/featurize.py` and `training/chemeleon_arms/sagemaker_runner.py`.
 
-## 1. Shape of the thing
+## 1. The chain of files
 
-R25 is not one model. It is the last link in a chain of submission files, where each
-step changes specific columns and leaves the others byte-identical:
+R25 is not one model. It is the last of four files, each built from the one before it by
+rewriting some columns and leaving the rest byte-identical:
 
 ```
 R17  ->  R23            ->  R24                      ->  R25
@@ -50,9 +50,7 @@ R17  ->  R23            ->  R24                      ->  R25
 
 Each step is fitted out of fold, applied to the blind set, and written out. Columns are
 treated independently because the metric scores four independent columns and averages
-them, so a change at one endpoint cannot help or hurt another. The numbers are local
-build ids and they skip, because more candidates were built and checked than were ever
-sent.
+them, so a change at one endpoint cannot help or hurt another.
 
 Underneath the chain sit twelve frozen models, the "members". Every step is a small
 fitted combination of member predictions on top of the previous column.
@@ -64,9 +62,9 @@ column per endpoint, and its four columns were copied out of four different earl
 submissions.
 
 The leaderboard reports a score for each endpoint separately, not only the macro
-average. After eighteen entries that makes the per-endpoint best known, so R17 was
-assembled by taking each column from whichever earlier file had scored best at that
-endpoint:
+average. By the time we had sent eighteen entries we knew which of our files held the
+best column at each endpoint, and they were not the same file. R17 takes each column from
+whichever file scored best there:
 
 | column | taken from | what produced that column | its live ST-RAE |
 |---|---|---|---|
@@ -81,10 +79,9 @@ an untouched column identically. Every later step depends on that, because it is
 lets a one-column change be read as a measurement of that column.
 
 So when the rest of this document says a step is fitted "on top of the incumbent", the
-incumbent is R17 and its macro is 0.4620. Sections 4 to 6 are the work of taking that to
-0.4436.
+incumbent is R17 and its macro is 0.4620. Sections 4 to 6 are how that became 0.4436.
 
-### The out-of-fold twin of R17
+### The training-set stand-in for R17
 
 R17 exists only on the blind set. Every fit below happens out of fold on training
 compounds, where there is no R17 to improve on, so the chain needs a stand-in: the same
@@ -114,10 +111,11 @@ all the fitting code in section 6.
 
 The script fails closed: its CYP1A2 output has to reproduce an existing reference column
 to floating-point tolerance, because that column was written by the code this script
-mirrors. That guard exists because of the failure that prompted the rebuild. For the
-first week there was no local reconstruction of our own incumbent at all, so every local
-gate ran against a weaker comparator, and a candidate that beat the local baseline by
-0.074 lost to R08 by 0.187 live. The panel was not wrong; the question it was asked was.
+mirrors. That guard exists because of how the first week went. There was no local
+reconstruction of our own submitted file then, so every local check compared candidates
+against something weaker than what was already on the board. One candidate beat the local
+baseline by 0.074 and lost to R08 by 0.187 live. The model was fine. The comparator was
+wrong.
 
 ## 2. Training data
 
@@ -133,9 +131,9 @@ that exist to regularize the shared representation:
 | `cyp*_max_response`, five isoforms | PubChem AID 1851 (Veith 2009 qHTS) | 80,665 |
 | `cyp*_pic50_qhts` | PubChem AIDs 410, 883, 884, 891, median per InChIKey | 15,070 |
 
-The scored labels are the smallest block in the table by an order of magnitude. That is
-the point: 6,525 potency labels will not train a 2048-wide message passing network on
-their own, and the auxiliary heads carry the representation.
+The scored labels are the smallest block in the table by an order of magnitude, which is
+deliberate. 6,525 potency labels will not train a 2048-wide message passing network on
+their own, so the auxiliary heads carry the representation.
 
 Alongside it, `bounds.csv` holds the credible interval per scored label, `weights.npy`
 the inverse-variance sample weights derived from those intervals, and `folds.npy` the
@@ -168,7 +166,7 @@ for parity with the public recipe it reproduces and is recorded in
 
 Two backbones, both directed message passing networks over the molecular graph via
 Chemprop, all trained as multi-task regressors over the 22-column table, five scaffold
-folds each. 364 SageMaker training jobs were run in total; these twelve earned a place.
+folds each. 364 SageMaker training jobs were run in total; twelve of them are used here.
 
 ```python
 ARMS = {
@@ -202,7 +200,7 @@ file. The full command line for each member is in `training/README.md`.
 
 ## 4. The interval objective
 
-This is the one modeling idea in the project that paid for itself.
+Of everything in sections 3 to 6, this gained the most.
 
 The metric does not reward hitting the label. It rewards landing anywhere inside the
 label's credible interval, and charges distance to the nearer edge otherwise. Training
@@ -210,9 +208,8 @@ on absolute error against a point label therefore spends capacity on precision t
 metric does not score.
 
 The obstacle is mechanical. Chemprop's loss sees predictions and targets, not a third
-and fourth array of bounds. The trick is to **ride the bounds in as extra target columns
-at task weight zero**, so the loss can read them while no head is trained to predict
-them:
+and fourth array of bounds. So the bounds go in **as extra target columns at task weight
+zero**: the loss can read them, and no head is trained to predict them:
 
 ```python
 if OBJECTIVE == "interval":
@@ -253,14 +250,13 @@ class IntervalMAE(ChempropMetric):
         return torch.stack(cols, dim=1)
 ```
 
-Masking the bound columns in `update` is load bearing. Without it the model grows eight
-heads that learn to predict interval edges, which wastes capacity and changes the
-gradient balance across tasks.
+The mask in `update` is not optional. Without it the model grows eight heads that learn
+to predict interval edges, which wastes capacity and changes the gradient balance across
+tasks.
 
 ## 5. The decision layer
 
-Four small functions do all of the combining. Together with the metric port they are the
-whole vocabulary of the build:
+Four small functions do all of the combining:
 
 ```python
 hinge = lambda p, lo, hi: np.clip(lo - p, 0, None) + np.clip(p - hi, 0, None)
@@ -286,9 +282,9 @@ intervals out in the tails. `mm` removes the location part before mixing, and `r
 puts both moments back afterward, so a fitted step is allowed to change the **ranking**
 of compounds but not the shape of the distribution.
 
-Note what the ST-RAE denominator is: the same hinge applied to a constant predictor at
-the mean of the labels. It depends only on the labels, not on the model, so it is a
-constant per endpoint. Minimizing ST-RAE is therefore exactly minimizing the summed
+The ST-RAE denominator is the same hinge applied to a constant predictor at the mean of
+the labels. It depends only on the labels, not on the model, so it is a constant per
+endpoint. Minimizing ST-RAE is therefore exactly minimizing the summed
 hinge, which is what every fit below actually optimizes.
 
 ## 6. The build, step by step
@@ -325,7 +321,7 @@ quantity is the disagreement between the two heads, which is a signal about the
 compound, while the raw value is mostly a signal about the assay.
 
 Powell is used because the objective is piecewise linear with flat regions, so it has no
-useful gradient. Powell is derivative-free and does not care.
+useful gradient to follow. Powell is derivative-free.
 
 ### R24, the other three columns
 
@@ -359,13 +355,13 @@ The L2 values are not tuned on the fit itself. They are the modal choice across 
 inner folds, which is why CYP1A2 carries ten times the penalty of the other two: its fit
 was the least stable across folds.
 
-There is a mismatch in the code above. Out of fold
-`base` is the R08-like twin at all three endpoints, but on the blind set `base_b` is
-R17's column, and for CYP2C9 those are not the same recipe: R17 took that column from
-R10, two submissions later. So the coefficients are fitted on how members differ from an
-R08-like baseline and then applied to how they differ from a better one. CYP1A2 and
-CYP2D6 have the same base on both sides and do not carry this. CYP2C9 went the right way
-live anyway, 0.3862 to 0.3802, but the fit did not guarantee that.
+There is a mismatch in the code above. Out of fold, `base` is the R08-like stand-in at
+all three endpoints, but on the blind set `base_b` is R17's column, and for CYP2C9 those
+are not the same recipe: R17 took that column from R10, two submissions later. So the
+coefficients are fitted on how members differ from an R08-like baseline and then applied
+to how they differ from a better one. CYP1A2 and CYP2D6 have the same base on both sides
+and are unaffected. CYP2C9 went the right way live anyway, 0.3862 to 0.3802, but the fit
+did not guarantee that.
 
 ### R25, one blend on CYP1A2
 
@@ -379,9 +375,8 @@ for E2 in ("CYP2C9", "CYP2D6", "CYP3A4"):
     assert np.array_equal(R25[COL[E2]].to_numpy(), R24[COL[E2]].to_numpy())
 ```
 
-A fifth of the TDI-augmented member, mean-matched in and moments restored, with an
-assertion that the other three columns did not move. That assertion is the habit worth
-copying: every step in this chain ends by proving it changed only what it meant to.
+A fifth of the TDI-augmented member, mean-matched in and moments restored. Every step in
+the chain ends with an assertion that it changed only the column it meant to.
 
 ## 7. Reproducing it
 
@@ -443,6 +438,5 @@ well-ranked columns, and the single largest improvement we ever measured came la
 from outside it: a uniform additive offset per endpoint, worth more than any change in
 sections 4 to 6. Out of fold the optimal offset is zero at every endpoint, because
 cross-validation holds the train-to-test gap constant and a location shift between them
-is exactly what it cannot see. The ranking work in this document is what the model is
-for; the offset is a free parameter the leaderboard will fit for you if you spend one
-submission asking.
+is exactly what it cannot see. One submission spent asking the board where the offset
+should sit would have been worth more than several of the steps above.
