@@ -13,14 +13,17 @@ tables and training scripts, and the scored history of every upload. MIT-0 licen
 
 ## Method reports
 
-- [`docs/regression_method_report.md`](docs/regression_method_report.md) covers the
-  regression track: what ST-RAE actually optimizes, the per-endpoint transfer table the
-  submission is assembled from, and the calibration offset that turned out to be the
-  largest effect in the project, including why cross-validation has the wrong sign on it.
-- [`docs/structure_method_report.md`](docs/structure_method_report.md) covers the CYP3A4
-  ligand-complex structure track: the co-folding setup, and the ablations on alignment
-  depth and composition, sampler settings, the pocket constraint and pose selection,
-  most of which are negative results.
+- [`docs/regression_method_report.md`](docs/regression_method_report.md) is how R25 was
+  built: the 22-target training table and how public data was joined to it without
+  leaking, the twelve Chemprop members and the three switches that distinguish them, the
+  interval objective that rides the credible bounds in as zero-weight target columns, and
+  the four-function decision layer that fits each step on the hinge and restores the
+  column's moments afterward. With the code for each.
+- [`docs/structure_method_report.md`](docs/structure_method_report.md) is how the CYP3A4
+  ligand complexes were built: the three-chain input with the heme as its own CCD chain,
+  the stripped apo template, pose selection, the PDB cleaning and zip preflight, and the
+  stereochemistry audit including the ring topology that a CIP-code check passes
+  vacuously.
 
 ## Reproduce the submission
 

@@ -1,238 +1,334 @@
-# OpenADMET CYP Inhibition Blind Challenge: structure prediction method report
+# How the CYP3A4 complexes were built
 
-Team: Scigantic
-Track: CYP3A4 ligand-complex structure prediction, scored by lDDT-PLI (higher is better)
-Entry on the board at the time of writing: 0.4565
+The structure entry for the OpenADMET CYP inhibition blind challenge predicts the
+CYP3A4 ligand complex for 20 blind compounds, scored by lDDT-PLI over protein-ligand
+contacts. This document is the construction: how an input is assembled, how the run is
+packaged, how one pose is chosen out of many, how the submission file is cleaned, and
+how we verify the thing we are about to upload is chemically the molecule we were asked
+about.
 
-## 1. Summary
+Code blocks are from the files named, abridged where a line does not carry the idea.
 
-We predict each CYP3A4 ligand complex with Boltz-2 co-folding, using a ligand-free
-CYP3A4 crystal template, the heme as an explicit second ligand chain, and a soft
-pocket constraint on four active-site residues. The pose submitted for each compound
-is the highest-confidence diffusion sample.
+## 1. The input
 
-The method is deliberately plain. The substance of this report is the set of
-negative results around it, because across roughly fifteen GPU-hours of controlled
-ablation we were unable to move the input side or the sampler side of this pipeline
-in a direction that survives its own noise. We report the ablations, the effect
-sizes with confidence intervals, and the one measurement that explains why the
-others came back empty.
+One YAML per compound. There are three chains, and the arrangement matters more than
+anything else in this document:
 
-## 2. System setup
+```yaml
+version: 1
+sequences:
+  - protein:
+      id: A
+      sequence: MALYGTHSHGLFKKLGIPGPTPLPFLGNILSYHKGFCMFDMECHKKYGKVWGFYDGQQ...
+  - ligand:
+      id: B
+      ccd: HEM
+  - ligand:
+      id: C
+      smiles: 'O=C(NC[C@@H]1CCC2=CC=CC=C21)C1=CC=NC(N2C=CN=C2)=C1'
+constraints:
+  - pocket:
+      binder: C
+      contacts: [[A, 98], [A, 283], [A, 284], [A, 288]]
+      max_distance: 8
+templates:
+  - cif: /tmp/boltz/1TQN.cif
+```
 
-Protein: the 486-residue CYP3A4 construct supplied with the challenge, as chain A.
-Construct residue *i* corresponds to canonical CYP3A4 residue *i* + 21.
+**The heme is its own chain, declared by CCD code, not omitted and not merged into the
+protein.** CYP3A4 without its heme is the wrong pocket: the porphyrin plane is one wall
+of the binding site, and the metric counts protein-ligand contact pairs, so a ligand
+placed where the heme should be scores contacts that cannot exist. Declaring it as
+chain B lets the co-folding model place the cofactor and the ligand in the same pass.
 
-Heme: an explicit chain B, declared as CCD ligand `HEM`. Modeling the heme as part
-of the complex rather than omitting it matters because lDDT-PLI is computed over
-protein-ligand contact pairs and the heme face defines one wall of the pocket.
+**The ligand goes in as SMILES, not as a CCD code**, because the blind compounds have no
+CCD entry, and because SMILES is how stereochemistry is specified. Section 5 is about
+taking that seriously.
 
-Ligand: chain C, from the organizers' SMILES. We re-pulled the organizers' ligand
-file after they added stereochemistry on 2026-10-24 and verified the shipped
-coordinates against it (section 5).
+**The pocket constraint** keeps the binder within 8 Angstrom of four active-site
+residues. These are construct numbering; the construct is offset by 21 from canonical
+CYP3A4, so 98, 283, 284 and 288 are canonical 119, 304, 305 and 309.
 
-Template: 1TQN, ligand-free CYP3A4 at 2.05 Angstrom.
+**The template** is 1TQN, ligand-free CYP3A4 at 2.05 Angstrom, stripped of every HETATM
+before use so that no ligand or heme atom from the template can leak in as a positional
+hint:
 
-Pocket constraint: binder C within 8 Angstrom of construct residues 98, 283, 284
-and 288 (canonical 119, 304, 305, 309).
+```python
+def strip_hetatm(src: Path, dst: Path) -> None:
+    lines = [l for l in src.read_text().splitlines() if not l.startswith("HETATM")]
+    dst.write_text("\n".join(lines) + "\n")
 
-Alignment: the ColabFold MMseqs2 server, `uniref.a3m` concatenated with
-`bfd.mgnify30.metaeuk30.smag30.a3m`, which is the order and the pair Boltz itself
-uses when `use_env` is set. 14,364 sequences.
+for t in templates_needed:
+    strip_hetatm(find_ref(t), HERE / "templates" / f"{t}.cif")
+    assert "HETATM" not in (HERE / "templates" / f"{t}.cif").read_text(), t
+```
 
-One implementation detail is worth recording because it is not documented and it
-bounds what an MSA experiment on this pipeline can test. Every alignment Boltz
-obtains through its MSA-server path is MMseqs2-filtered: `mmseqs2.py` defaults
-`use_filter=True` and `main.py` calls `run_mmseqs2(..., use_env=True,
-use_pairing=False)` without overriding it, so no command-line flag reaches the
-unfiltered alignment. Testing the filter requires fetching the alignment out of
-band and feeding it in as a file, which is what we did in section 4.3.
+The YAML is assembled as text rather than dumped from a dict, so the file reads exactly
+as above and diffs cleanly between arms:
 
-Generation: boltz 2.2.1, 3 diffusion samples, 3 recycling steps, 200 sampling
-steps, `--use_potentials`.
+```python
+lines = [
+    "version: 1",
+    "sequences:",
+    "  - protein:",
+    "      id: A",
+    f"      sequence: {SEQUENCE}",
+    "  - ligand:",
+    "      id: B",
+    "      ccd: HEM",
+    "  - ligand:",
+    "      id: C",
+    f"      smiles: '{smiles}'",
+    "constraints:",
+    "  - pocket:",
+    "      binder: C",
+    "      contacts: [[A, 98], [A, 283], [A, 284], [A, 288]]",
+    "      max_distance: 8",
+]
+if info["template_pdb"]:
+    lines += ["templates:", f"  - cif: /tmp/w/templates/{info['template_pdb']}.cif"]
+(HERE / "inputs" / f"{case_id}.yaml").write_text("\n".join(lines) + "\n")
+```
 
-Selection: highest `confidence_score`. Boltz writes its samples pre-sorted by
-confidence, so this is rank-1 of the sampled set.
+It then parses every file it just wrote, which catches a quoting error in a SMILES before
+a GPU is billed for it:
 
-Post-processing: `CONECT` and `TER` records stripped, chain B HETATM records
-renamed `HEM`, ligand left as `LIG` on chain C.
+```python
+for cid in case_list:
+    d = _yaml.safe_load((HERE / "inputs" / f"{cid}.yaml").read_text())
+    assert d["sequences"][2]["ligand"]["smiles"]
+```
 
-## 3. The benchmark's resolving power is the binding constraint
+## 2. The run
 
-We evaluated candidate changes on 22 held-out CYP-ligand crystal complexes with
-OpenStructure, at the scorer's defaults (`lddt_pli_radius=6.0`,
-`add_mdl_contacts=True`, `bs_radius=4.0`, `lddt_lp_radius=15.0`).
+Boltz-2 (2.2.1), three diffusion samples per compound, on one `ml.g5.xlarge`:
 
-In a ten-arm sampler ablation we included a replica arm: an arm byte-identical to
-the control, same seed, same inputs. It scored **0.4250 against the control's
-0.4107, a difference of +0.0143 lDDT-PLI**. That is the pipeline's run-to-run
-nondeterminism on this benchmark, and it is larger than every apparent gain we
-measured anywhere in the campaign. The matching detection floor is 0.0338
-lDDT-PLI. Our gap to first place is 0.0330.
+```bash
+boltz predict /tmp/boltz/inputs \
+  --out_dir "$OUT/boltz" \
+  --diffusion_samples 3 \
+  --recycling_steps 3 \
+  --sampling_steps 200 \
+  --output_format pdb \
+  --use_msa_server \
+  --use_potentials $KERNELS \
+  --override
+```
 
-In other words, the internal benchmark is blind at exactly the scale that decides
-rank. Converted through the measured slope of 0.109 lDDT-PLI per Angstrom of
-BiSyRMSD, the floor corresponds to 0.31 Angstrom of pose accuracy, which is a
-larger improvement than any single input change plausibly delivers.
+`--use_potentials` turns on the steering potentials that enforce physical validity
+during diffusion. Section 6 records what happens without them.
 
-We consider this the most useful result of the campaign and we state it before the
-ablations because it is the correct lens for reading them. A null result from a
-22-case benchmark is not evidence that a lever is dead. It is mostly evidence that
-the benchmark cannot see the lever. Where we claim a lever is closed below, the
-claim rests on a confidence interval that excludes zero or on direct board
-feedback, not on a null.
+The alignment comes from the ColabFold MMseqs2 server, which Boltz calls itself under
+`--use_msa_server`: `uniref.a3m` concatenated with
+`bfd.mgnify30.metaeuk30.smag30.a3m`, 14,364 sequences for this construct. One
+undocumented detail worth knowing if you plan an MSA experiment on this pipeline: every
+alignment Boltz obtains this way is MMseqs2-filtered. `mmseqs2.py` defaults
+`use_filter=True` and `main.py` calls `run_mmseqs2(..., use_env=True, use_pairing=False)`
+without overriding it, so no command-line flag reaches the unfiltered alignment. To test
+that you have to fetch the alignment out of band and pass it as a file.
 
-A corollary we acted on late and should have acted on early: the public leaderboard
-measures the actual 20 compounds exactly, and it is free. For effect sizes in the
-0.01 to 0.03 band it is a strictly better instrument than any internal benchmark we
-could afford to build.
+The job script runs a one-case smoke test before the real run, because a Boltz
+invocation can exit zero having written no predictions:
 
-## 4. Ablations
+```bash
+boltz predict /tmp/smoke_in --out_dir /tmp/smoke_out --diffusion_samples 1 \
+  --recycling_steps 1 --sampling_steps 20 --output_format pdb --use_msa_server \
+  --use_potentials $KERNELS --override 2>&1 | tail -12
+NS=$(find /tmp/smoke_out -name "*_model_*.pdb" | wc -l)
+[ "$NS" -ge 1 ] || { echo "FATAL: smoke test produced no pose, aborting"; exit 1; }
+```
 
-### 4.1 Narrowing the alignment by pocket identity makes it worse
+The launcher asserts the shape of the input bundle before uploading it. The AppleDouble
+check is there because macOS `tar` writes `._`-prefixed sidecar files into archives, and
+Boltz globs `inputs/*.yaml`, so it would have happily tried to fold twenty-two files of
+resource-fork garbage:
 
-We built four alternative alignments by filtering the 14,078-row shipped MSA on
-identity at the 48-residue contact core (the columns with at least 10 contacts
-across 112 CYP crystals, which recover exactly the six Gotoh substrate recognition
-sites), and ran all of them against the shipped alignment as the control.
+```python
+junk = sorted(n for n in names if pathlib.PurePath(n).name.startswith("._")
+              or pathlib.PurePath(n).name == ".DS_Store")
+assert not junk, f"AppleDouble/.DS_Store entries in bundle: {junk[:5]}"
+```
 
-| arm | sequences | Neff/sqrt(L) | lDDT-PLI | contact recall | lDDT-LP |
-|-----|-----------|--------------|----------|----------------|---------|
-| M0 shipped | 8192 | 270.7 | 0.4079 | 0.7596 | 0.8002 |
-| M1 pocket-strict | 1138 | 13.0 | 0.3834 | 0.7281 | 0.7320 |
-| M2 pocket-moderate | 1664 | 23.7 | 0.3756 | 0.7283 | 0.7509 |
-| M3 pocket-very-strict | 226 | 2.2 | 0.4135 | 0.7647 | 0.7920 |
-| M4 hybrid | 1796 | 19.4 | 0.3975 | 0.7471 | 0.7590 |
+The fix on the writing side is `COPYFILE_DISABLE=1 tar --exclude='._*' --exclude='.DS_Store'`.
 
-M1 and M2 lose contact recall with intervals that exclude zero (M1 -0.0315, 95% CI
-[-0.0527, -0.0103]; M2 -0.0313, CI [-0.0543, -0.0080]). This is a real negative,
-not a null.
+## 3. Choosing one pose
 
-The obvious explanation is an Neff cliff, and it is wrong. M3, the shallowest arm
-at 226 sequences and Neff/sqrt(L) of 2.2, is the *best* of the narrowed arms and
-beats M1 by +0.0366 contact recall, CI [+0.0154, +0.0581]. Depth is therefore not
-what distinguishes the narrowed arms from each other, and our original design
-confounded composition with depth because every narrowed arm also cut depth.
+Boltz writes one PDB and one confidence JSON per diffusion sample. The submitted pose is
+the highest `confidence_score`:
 
-### 4.2 More depth does not help either
+```python
+def pick_best(case_dir: Path):
+    best = (None, -1.0)
+    for p in sorted(case_dir.glob("confidence_*_model_*.json")):
+        idx = int(p.stem.rsplit("_model_", 1)[1])
+        s = json.loads(p.read_text()).get("confidence_score", -1.0)
+        if s > best[1]:
+            best = (idx, s)
+    return best
+```
 
-We raised the cap to `--max_msa_seqs 16384` for +46.3% Neff. Null to slightly
-negative.
+In practice this always returns `model_0`, because Boltz pre-sorts its samples by
+confidence. The function is written as a search anyway so that the rule is explicit in
+the code rather than implicit in an output convention.
 
-### 4.3 A 31-times deeper unfiltered alignment is a clean null
+We tested whether anything better than rank-1 exists and the answer is no. Seventeen
+selection signals, twelve confidence-derived and five geometric, over two independent
+sets: nothing holds above noise and top-1 is exactly chance. Consensus selection is
+worse than chance here, not neutral. A coordinate-medoid pick over ten samples, same
+recipe otherwise, scored 0.4034 against 0.4565 for rank-1. Pose error on this target is
+a displaced mode rather than scatter about the right answer, so moving a pick toward the
+center of the sampled distribution moves it toward the center of the wrong mode.
 
-To test the MMseqs2 filter we fetched both `env` and `env-nofilter` alignments for
-the construct directly from the ColabFold API. Filtered: 6,522 uniref plus 7,842
-env, 14,364 total. Unfiltered: 345,164 uniref plus 105,706 env, **450,870
-sequences**, 428,544 unique, 180,602 covering at least 90% of the query.
+## 4. Building the submission file
 
-Naive truncation to the 8,192-row budget is worse than the shipped alignment, which
-we predeclared and confirmed (-75.9% Neff), because the file order of an unfiltered
-search is dominated by near-duplicates. Random sampling of 8,192 from the
-well-covered pool instead gives Neff 6,287.9 against the shipped alignment's
-5,433.3, a +15.7% global gain, and pocket-column Neff of 6,006.6 against 542.8,
-which is **+1007%**.
+Raw Boltz output needs three fixes. Both the heme and the ligand come out as residue
+name `LIG`, distinguished only by chain, so the heme has to be renamed. `CONECT` and
+`TER` records are stripped because the scorer does not want them:
 
-That arm is a clean null on every endpoint: contact recall +0.0024, CI [-0.0284,
-+0.0324]; lDDT-PLI -0.0046, CI [-0.0373, +0.0299]; lDDT-LP +0.0038. All intervals
-include zero, and the control reproduced the independent control from the sampler
-ablation to within 0.0013, so the comparison itself is sound.
+```python
+def clean_pdb(text: str) -> str:
+    out = []
+    for line in text.splitlines():
+        rec = line[:6]
+        if rec in ("CONECT", "TER   ", "TER"):
+            continue
+        if rec == "END   " or line.strip() == "END":
+            out.append("END"); continue
+        if rec in ("ATOM  ", "HETATM"):
+            if rec == "HETATM" and line[21] == "B":
+                line = line[:17] + "HEM" + line[20:]
+            out.append(line)
+    return "\n".join(out) + "\n"
+```
 
-An eleven-fold increase in pocket-column diversity changing nothing is the
-strongest statement we can make about this axis. The alignment is not the
-bottleneck for this target.
+Filtering on **chain** and not on residue name is the whole trick. Anything that
+selects the ligand by `resname LIG` picks up the heme as well, silently, and produces a
+43-atom ligand that still scores.
 
-Two related sub-results. Close-homolog coverage is already saturated: 4 sequences
-at 99% identity or better, 21 at 90% or better, 82 at 80% or better, so there is
-nothing to add at the top. And the Neff-optimal subset we went looking for does not
-exist: the well-covered pool holds 7,495 sequences, which is smaller than the 8,192
-budget, so there is no reordering gain to capture. An apparent +42.8% headroom we
-first measured was fragments, drawn from a tail that is 89.2% partial sequences.
+Then the preflight, which is the part worth copying. Every assertion below is one we
+once needed:
 
-### 4.4 Sampler knobs
+```python
+assert len(payload) == 20, f"expected 20 poses, built {len(payload)}"
+assert sorted(payload) == live_names, "file-name set differs from the live bundle"
+for n, b in payload.items():
+    t = b.decode()
+    chains = {l[21] for l in t.splitlines() if l[:6] in ("ATOM  ", "HETATM")}
+    res    = {l[17:20] for l in t.splitlines() if l[:6] == "HETATM"}
+    assert chains == {"A", "B", "C"}, f"{n}: chains {sorted(chains)}"
+    assert res == {"HEM", "LIG"}, f"{n}: HETATM resnames {sorted(res)}"
+    assert "CONECT" not in t and "\nTER" not in t, f"{n}: CONECT/TER survived cleaning"
+    nlig = sum(1 for l in t.splitlines() if l[:6] == "HETATM" and l[21] == "C")
+    assert nlig > 0, f"{n}: no ligand atoms on chain C"
 
-`--step_scale` is the per-step interpolation gain toward the denoised estimate. At
-the boltz2 default of 1.5 the sampler overshoots the mode by 50% per step. Lowering
-it is mechanically live and gives a clean dose-response in pose spread (depth
-standard deviation 0.202, 0.349, 0.437, 0.533 as it falls), and it is monotonically
-harmful: fold quality collapses below 1.25, and at 0.5 all 66 ligands in the arm
-stop being chemically valid molecules. The broken-ligand ladder across the arms is
-0, 0, 1, 9, 66.
+with zipfile.ZipFile(OUT_ZIP) as z:
+    assert not [n for n in z.namelist()
+                if n.startswith("__MACOSX") or Path(n).name.startswith("._")
+                or Path(n).name == ".DS_Store"], "junk entries in zip"
+```
 
-`--subsample_msa` was the best arm in that experiment at +0.0120, which is inside
-the noise floor and therefore not a result. It is worth noting that this flag is
-declared `is_flag=True` with no `default=`, so click passes `False` when it is
-absent while its own help string says "Default is True". It had been off in every
-run we had ever done.
+The build writes a JSON record of which sample index was chosen for each compound,
+its confidence, and whether the resulting bytes match the previous submission. Identify
+a bundle by per-file CRC and that record, never by its filename. We have twice been
+wrong about which file was live by trusting a name.
 
-### 4.5 The pocket constraint is not what keeps poses shallow
+## 5. Verifying stereochemistry
 
-Our predicted ligands sit about 6.8 Angstrom from the heme iron, while the two
-crystal far-site cases sit at 13.59 and 12.71 Angstrom. The natural suspect is the
-8 Angstrom pocket constraint. It is not the cause. We scored a genuinely
-unconstrained run and its poses sit at 5.8 to 6.9 and 4.0 to 7.3 Angstrom for those
-two cases, which is no deeper than the constrained ones. The constraint is
-exonerated on direct evidence.
+The organizers added stereocenters to the test ligands partway through the challenge,
+after poses had already been generated. Four of the twenty compounds carry
+stereochemistry, so the shipped coordinates have to be checked against the current
+reference SMILES rather than against the SMILES we happened to fold.
 
-### 4.6 Pose selection has no usable signal, and consensus selection actively loses
+The direct check assigns bond orders from the reference as a template, reads CIP codes
+back out of the 3D coordinates, and compares:
 
-We tested 17 selection signals (12 confidence-derived, 5 geometric) on two
-independent sets. Nothing holds above noise, and top-1 selection is exactly chance.
-An earlier claim of +0.0183 for `confidence_score` did not replicate: on 88
-held-out cells it was -0.0011.
+```python
+ref = Chem.MolFromSmiles(reference_smiles)
+Chem.AssignStereochemistry(ref, cleanIt=True, force=True)
+want = {a.GetIdx(): a.GetProp('_CIPCode') for a in ref.GetAtoms() if a.HasProp('_CIPCode')}
 
-The board then gave us a sharper result than our benchmark could. A
-coordinate-medoid pick over 10 diffusion samples, generated with an otherwise
-identical recipe, **scored 0.4034 against 0.4565 for the rank-1 pick**. Consensus
-selection costs 0.053 lDDT-PLI here. This is consistent with the error structure we
-see throughout: pose error on this target is a displaced mode, not scatter about the
-right answer, so moving a pick toward the center of the sampled distribution moves
-it toward the center of the wrong mode. Averaging and consensus are the wrong family
-of operation for this failure mode, and we would caution anyone reading an
-encouraging medoid result on a different target against transferring it here.
+lig = Chem.MolFromPDBBlock(ligand_block, sanitize=False, proximityBonding=True, removeHs=True)
+mol = AllChem.AssignBondOrdersFromTemplate(ref, lig)      # PDB has no bond orders
+Chem.AssignStereochemistryFrom3D(mol)
+got = {a.GetIdx(): a.GetProp('_CIPCode') for a in mol.GetAtoms() if a.HasProp('_CIPCode')}
+assert want == got
+```
 
-## 5. Stereochemistry audit
+`AssignBondOrdersFromTemplate` is required because we strip `CONECT` records in section
+4, so the PDB carries no bond orders and RDKit has to infer connectivity by proximity
+before stereochemistry means anything.
 
-The organizers added stereocenters to the test ligands on 2026-10-24, after our
-poses were generated. Four of the twenty compounds carry stereochemistry. We
-re-verified the shipped coordinates against the current reference SMILES by
-assigning bond orders from the reference template and reading CIP codes from the 3D
-structure. Three are ordinary R/S centers and all three match.
+**This check silently skips the case most likely to be wrong.** One of our four,
+OCNT-2313038, is `C[C@@H]1CC[C@@H](NC(=O)...)CC1`: a 1,4-disubstituted cyclohexane. Its
+two centers are not independent, the relationship is cis or trans across the ring rather
+than R or S, and RDKit assigns no CIP code to either. So `want` and `got` are both empty
+dictionaries, they compare equal, and the assertion passes without testing anything.
 
-The fourth, OCNT-2313038, is a 1,4-disubstituted cyclohexane whose relationship is
-cis/trans across the ring rather than R/S, so RDKit assigns it no CIP code and a
-CIP-based check passes it without testing anything. We tested it geometrically
-instead, by fitting the ring plane and comparing which face each exocyclic
-substituent sits on, calibrated against embedded conformers of the reference SMILES
-(12 of 12 trans). The shipped pose is trans and correct.
+For that topology you have to measure the geometry. Fit the ring plane, then ask which
+face each exocyclic substituent sits on:
 
-We record this because a CIP-code comparison is the obvious way to run this audit
-and it silently skips exactly the case most likely to be wrong.
+```python
+def relationship(mol, ring, sub_a, ring_a, sub_b, ring_b, conf_id=0):
+    p = mol.GetConformer(conf_id).GetPositions()
+    R = p[list(ring)]
+    c = R.mean(0)
+    n = np.linalg.svd(R - c)[2][-1]          # plane normal = smallest singular vector
+    sa = np.dot(p[sub_a] - p[ring_a], n)     # signed offset from the ring plane
+    sb = np.dot(p[sub_b] - p[ring_b], n)
+    return "cis" if sa * sb > 0 else "trans"
+```
 
-## 6. Known remaining error
+Calibrate the answer by embedding the reference SMILES, which honors its own declared
+ring stereochemistry, and take the majority over conformers:
 
-The systematic error we did not fix is pose depth. Predictions cluster around 6.8
-Angstrom from the heme iron with a standard deviation under 0.4 Angstrom, while the
-crystal distribution is much wider and includes genuine far-site binders at 12 to 14
-Angstrom. Per protomer, 4.1% of our reference corpus binds far from the heme. We
-confirmed this is real and not an artifact: an earlier 19.6% figure was a
-cross-protomer measurement error, visible as a 75.86 Angstrom maximum, and the
-per-protomer re-check of the two far-site cases confirms a single chain with a
-single ligand copy at 13.59 and 12.71 Angstrom.
+```python
+r3 = Chem.AddHs(Chem.MolFromSmiles(SMI))
+cids = AllChem.EmbedMultipleConfs(r3, numConfs=12, randomSeed=0xC0FFEE)
+AllChem.MMFFOptimizeMoleculeConfs(r3)
+votes = Counter(relationship(Chem.RemoveHs(r3), ..., conf_id=c) for c in cids)
+want = votes.most_common(1)[0][0]            # 12 of 12 trans for this compound
+```
 
-Neither the input side nor the sampler side moved this. The pocket constraint is not
-responsible (4.5), the alignment is not responsible (4.1 to 4.3), and the sampler
-cannot be loosened enough to reach those depths without destroying the ligands
-(4.4). We believe closing it requires a model whose prior over CYP3A4 binding
-geometry is different, not a better-configured version of this one.
+Our shipped pose is trans and correct, as are the other three. The point is that a
+CIP-code comparison is the obvious way to run this audit and it passes the ring case
+vacuously, so the audit has to branch on topology.
 
-## 7. Reproduction
+## 6. What moved the result, and what did not
 
-Each ablation directory under `analysis/` holds a `PROTOCOL.md` written and
-timestamped before any output existed, the launcher with its preflight assertions,
-the scoring script, the per-pose sample table and a `RESULT.md` recording the
-outcome against the predeclared gates. Where we overrode one of our own gates, the
-override and its direction are recorded in that file, including one case where the
-override was in the permissive direction and we flagged it as the kind of move to
-distrust. Where a claim was withdrawn, the withdrawal is an addendum in the same
-file rather than an edit to the original text.
+Briefly, since the construction above is the subject of this document.
+
+The one generator setting that matters is `--use_potentials`. The sampler knob
+`--step_scale`, which is the per-step interpolation gain toward the denoised estimate
+(default 1.5, meaning the sampler overshoots the mode by 50% per step), is monotonically
+harmful when lowered: fold quality collapses below 1.25, and at 0.5 all 66 ligands in
+that arm stopped being chemically valid molecules. The broken-ligand count across the
+arms was 0, 0, 1, 9, 66.
+
+Nothing on the input side moved it. Narrowing the alignment by pocket-residue identity
+is significantly negative. A 31-times deeper unfiltered search, 450,870 sequences with
+eleven times the pocket-column diversity, is a clean null on every endpoint. Close
+homolog coverage is already saturated. The pocket constraint is not what keeps poses
+shallow, which we established by scoring a genuinely unconstrained run and finding its
+poses no deeper.
+
+The measurement that explains the shape of that list: we ran an arm byte-identical to
+its own control, same seed, and it scored 0.0143 lDDT-PLI away. That is the pipeline's
+run-to-run nondeterminism, it is larger than every apparent gain we measured anywhere,
+and it is larger than the gap between our entry and first place. An internal benchmark
+of 22 crystal complexes cannot resolve the effect sizes that decide rank on a 20-compound
+leaderboard, and most of the null results above are better read as evidence about the
+instrument than about the lever.
+
+## 7. Files
+
+| what | where |
+|---|---|
+| YAML construction, template stripping | `analysis/boltz_template_ablation_20260930/build_inputs.py` |
+| run script, smoke test | `analysis/boltz_live20_*/run_*.sh` |
+| launcher and bundle preflight | `analysis/boltz_live20_*/launch_*.py` |
+| pose selection, PDB cleaning, zip preflight | `analysis/boltz_live20_*/build_*_submission.py` |
+
+Each ablation directory holds a `PROTOCOL.md` written before any output existed and a
+`RESULT.md` recording the outcome against the predeclared gates. Where we overrode one
+of our own gates, the override and its direction are recorded there, including one case
+where the override was in the permissive direction and we said so.

@@ -1,253 +1,352 @@
-# OpenADMET CYP Inhibition Blind Challenge: regression method report
+# How R25 was built
 
-Team: Scigantic
-Track: CYP direct-inhibition pIC50 regression, four endpoints, scored by
-soft-thresholded relative absolute error (ST-RAE, lower is better)
-Entry on the board at the time of writing: 0.4283 macro
+The regression entry for the OpenADMET CYP inhibition blind challenge predicts pIC50
+against CYP1A2, CYP2C9, CYP2D6 and CYP3A4 for 750 blind compounds. This document is the
+construction: the training tables, the twelve models behind it, the loss function that
+made the difference, and the decision layer that combines them into one CSV.
 
-| endpoint | our cell |
-|----------|----------|
-| CYP1A2 | 0.4521 |
-| CYP2C9 | 0.3504 |
-| CYP2D6 | 0.5345 |
-| CYP3A4 | 0.3762 |
-| macro | 0.4283 |
+Everything here runs from this repository. `scripts/build_r25.py` rebuilds the uploaded
+file from frozen member predictions in about three seconds with no training and no GPU,
+and checks the result against the submitted bytes.
 
-## 1. Summary
+Every code block below is from the file it is attributed to, abridged where a line does
+not carry the idea. The authoritative versions are `scripts/build_r25.py`,
+`training/featurize.py` and `training/chemeleon_arms/sagemaker_runner.py`.
 
-We predict pIC50 for 750 blind compounds at four CYP endpoints with gradient-boosted
-ensembles over standard molecular descriptors and fingerprints, trained on the
-4,905-row challenge training set.
+## 1. Shape of the thing
 
-Two things in this report are worth more than the model itself. The first is a
-reading of the scoring function that makes it tractable to reason about (section 2).
-The second is that the obvious consequence of that reading, training against the
-metric instead of against plain absolute error, loses at all four endpoints, and we
-can say why (section 4.1).
+R25 is not one model. It is the last link in a chain where each step changes specific
+columns and leaves the others byte-identical:
 
-## 2. What ST-RAE actually optimizes
+```
+R17  ->  R23            ->  R24                      ->  R25
+         CYP3A4 only         CYP1A2, CYP2C9, CYP2D6       CYP1A2 only
+```
 
-ST-RAE is `rae_soft_threshold_absolute_error` in the challenge's
-`evaluation/custom_scoring_functions.py`. It is an epsilon-insensitive L1 error: a
-prediction inside the compound's measured confidence interval contributes nothing,
-and outside it contributes its distance to the nearer edge. That much is visible
-from the name.
+Each step is fitted out of fold, applied to the blind set, and written out. Columns are
+treated independently because the metric scores four independent columns and averages
+them, so a change at one endpoint cannot help or hurt another.
 
-The part that matters for optimization is the denominator. The naive baseline in the
-denominator is put through the *same* soft-thresholding as the prediction.
-Therefore the denominator depends only on the hidden labels and their intervals, and
-is a constant per endpoint. Minimizing ST-RAE is exactly minimizing a sum of
-epsilon-insensitive absolute errors, with no normalization term that the model's own
-predictions can influence.
+Underneath the chain sit twelve frozen models, the "members". Every step is a small
+fitted combination of member predictions on top of the previous column.
 
-We also verified that the macro is a plain unweighted mean of the four cells rather
-than anything pooled or sample-weighted:
+## 2. Training data
 
-    (0.4521 + 0.3504 + 0.5345 + 0.3762) / 4 = 0.42830
+`data/training/chemeleon_22/train_table.csv` holds 31,669 compounds and 22 target
+columns. Only four of those columns are scored. The other eighteen are auxiliary tasks
+that exist to regularize the shared representation:
 
-which matches the posted macro exactly. Both facts are worth confirming before
-spending any effort on the metric, since they determine whether per-endpoint work
-can be reasoned about independently. It can.
+| columns | source | labels |
+|---|---|---|
+| `cyp*_pic50_direct_inhibition` | organizers | 6,525 |
+| `cyp*_log2fc` | organizers, single-concentration screen | 17,500 |
+| `cyp*_pic50_chembl`, five isoforms | ChEMBL IC50, median per connectivity key | 56,705 |
+| `cyp*_max_response`, five isoforms | PubChem AID 1851 (Veith 2009 qHTS) | 80,665 |
+| `cyp*_pic50_qhts` | PubChem AIDs 410, 883, 884, 891, median per InChIKey | 15,070 |
 
-## 3. Submitted system
+The scored labels are the smallest block in the table by an order of magnitude. That is
+the point: 6,525 potency labels will not train a 2048-wide message passing network on
+their own, and the auxiliary heads carry the representation.
 
-The live entry is assembled per column rather than produced by one training run, and
-two of its four columns carry a uniform additive calibration offset on top of the
-model output.
+Alongside it, `bounds.csv` holds the credible interval per scored label, `weights.npy`
+the inverse-variance sample weights derived from those intervals, and `folds.npy` the
+scaffold fold of each row.
 
-It starts from our R25 artifact, whose per-endpoint live scores are recorded in our
-submission history, and changes three columns:
+### Leak control
 
-| endpoint | what the column is | offset | R25 live | live now | gain |
-|----------|--------------------|--------|----------|----------|------|
-| CYP1A2 | R25 column plus a constant | +0.170 | 0.4739 | 0.4521 | +0.0218 |
-| CYP2C9 | R25 column plus a constant | +0.140 | 0.3802 | 0.3504 | +0.0298 |
-| CYP2D6 | a separate model | none | 0.5442 | 0.5345 | +0.0097 |
-| CYP3A4 | R25 column, untouched | 0.000 | 0.3762 | 0.3762 | 0.0000 |
+Public rows were joined to the challenge on the **first block of the InChIKey**, so
+salts, stereochemistry and charge are ignored and a held-out compound cannot re-enter
+the training set under a different identifier. The scaffold used for folding is Murcko,
+without chirality:
 
-The macro closes exactly on those four cells:
+```python
+def scaffold_of(smiles: str) -> str:
+    m = Chem.MolFromSmiles(smiles)
+    if m is None:
+        return smiles
+    try:
+        return MurckoScaffold.MurckoScaffoldSmiles(mol=m, includeChirality=False)
+    except Exception:
+        return smiles
+```
 
-    0.4436 - (0.0218 + 0.0298 + 0.0097) / 4 = 0.4283
+One blind compound, OCNT-0496981, does appear in the union table under its PubChem
+identifier, with AID 1851 maximum-response values only and no potency label. It was kept
+for parity with the public recipe it reproduces and is recorded in
+`training/workbench_recipe/sealed_manifest.json`.
 
-We identified the live artifact by its CYP3A4 column rather than by its filename. The
-board reports CYP3A4 at 0.3762, which is R25's recorded CYP3A4 cell to four decimals,
-and the candidate files differ in exactly that column, so the one holding R25's
-CYP3A4 unchanged is the one on the board. A filename is not provenance, and in this
-project we have twice been wrong about which file was live by trusting one.
+## 3. The twelve members
 
-CYP2D6 and CYP3A4 were deliberately left without an offset. The reason is the
-per-endpoint transfer record, which is the most useful artifact the regression track
-produced:
+Two backbones, both directed message passing networks over the molecular graph via
+Chemprop, all trained as multi-task regressors over the 22-column table, five scaffold
+folds each. 364 SageMaker training jobs were run in total; these twelve earned a place.
 
-| endpoint | offline-to-board transfer | record |
-|----------|---------------------------|--------|
-| CYP3A4 | +0.82 | 6 of 6 |
-| CYP2C9 | +0.40 | 3 of 3 modern |
-| CYP1A2 | +0.24 | 2 of 3 |
-| CYP2D6 | -0.18 | 1 of 3 |
+```python
+ARMS = {
+    "A": dict(d_h=700,  depth=5, ffn=300,  dropout=0.1, init="random"),
+    "B": dict(d_h=2048, depth=4, ffn=1024, dropout=0.2, init="random"),
+    "C": dict(d_h=2048, depth=4, ffn=1024, dropout=0.2, init="chemeleon"),
+    "D": dict(d_h=2048, depth=4, ffn=1024, dropout=0.2, init="organizer"),
+}
+```
 
-CYP3A4 is the only endpoint whose offline judgment is distinguishable from a coin
-flip (one-sided p = 0.0156), and it is also our strongest column, so we did not
-disturb it. CYP2D6 offline gains have historically *reversed* on the board, with a
-negative expected signed transfer in every era we can slice, so we treat any CYP2D6
-change as presumed harmful until the board says otherwise.
+Arm C initializes message passing from the CheMeleon foundation checkpoint, arm D from
+the organizers' CYP-finetuned CheMeleon. The remaining members vary three switches over
+arm B and C: the objective (`mae` or `interval`), the sample weighting (`invvar` or
+`uniform`), and the training table.
 
-## 4. Negative results
+| member | arm | objective | weights | table |
+|---|---|---|---|---|
+| armA, armB, armC, armD | A, B, C, D | mae | invvar | chemeleon_22 |
+| ivB2048, ivC2048 | B, C | interval | uniform | chemeleon_22 |
+| mu2048 | B | mae | uniform | chemeleon_22 |
+| ii2048 | B | interval | invvar | chemeleon_22 |
+| g26_tdi_armB | B | mae | invvar | chemeleon_26_tdi |
+| union18, mt_aux8 | Workbench recipe | | | union18_full, mt_aux8_full |
+| aux_ac50, cp_interval | Chemprop | mae, interval | invvar | chemprop_22 |
 
-### 4.1 Training against the metric loses at every endpoint
+`union18` and `mt_aux8` are recipe-level reproductions of a public SuperCowPowers
+Workbench member, pinned against hashes in
+`training/workbench_recipe/FROZEN_REPRODUCIBILITY_CONTRACT.json`. `g26_tdi_armB` adds
+four TDI-condition pIC50 heads and the compounds that only appear in the organizers' TDI
+file. The full command line for each member is in `training/README.md`.
 
-Given section 2, the natural move is to replace the training loss with the metric:
-an epsilon-insensitive objective that stops penalizing a prediction once it is
-inside the label's confidence interval. We implemented it as a custom LightGBM
-objective using the training set's own per-compound `_conf_low` and `_conf_high`
-columns, and compared it against plain L2 and plain L1 under identical folds and
-hyperparameters.
+## 4. The interval objective
 
-| endpoint | n | L2 | MAE | band | band minus MAE |
-|----------|------|--------|--------|--------|-----------|
-| CYP1A2 | 1412 | 0.8455 | 0.7949 | 0.8240 | +0.0291 |
-| CYP2C9 | 1285 | 0.6979 | 0.6889 | 0.7229 | +0.0339 |
-| CYP2D6 | 1493 | 0.9879 | 0.9035 | 0.9689 | +0.0654 |
-| CYP3A4 | 2335 | 0.5225 | 0.5144 | 0.5219 | +0.0076 |
+This is the one modeling idea in the project that paid for itself, and it is worth
+reading closely.
 
-The metric-matched objective is worse than plain MAE at all four endpoints. Applied
-everywhere it would be expected to score 0.4320 against the 0.4283 that is live.
+The metric does not reward hitting the label. It rewards landing anywhere inside the
+label's credible interval, and charges distance to the nearer edge otherwise. Training
+on absolute error against a point label therefore spends capacity on precision the
+metric does not score.
 
-The striking part is not that it loses on ST-RAE. It is that it also lands *fewer*
-predictions inside the band, which is the only thing it is built to do:
+The obstacle is mechanical. Chemprop's loss sees predictions and targets, not a third
+and fourth array of bounds. The trick is to **ride the bounds in as extra target columns
+at task weight zero**, so the loss can read them while no head is trained to predict
+them:
 
-| endpoint | MAE inside band | band objective inside band |
-|----------|-----------------|----------------------------|
-| CYP1A2 | 24.1% | 21.0% |
-| CYP2C9 | 41.1% | 35.9% |
-| CYP2D6 | 19.0% | 17.5% |
-| CYP3A4 | 37.7% | 26.8% |
+```python
+if OBJECTIVE == "interval":
+    SC_IDX = [TARGETS.index(c) for c in SC4]
+    extra = []
+    for c in SC4:                       # all four lower bounds, then all four upper
+        e = c.split("_")[0].upper()
+        extra.append(bounds[f"{e}_lo"].to_numpy(float))
+    for c in SC4:
+        e = c.split("_")[0].upper()
+        extra.append(bounds[f"{e}_hi"].to_numpy(float))
+    Y = np.hstack([Y, np.column_stack(extra)])
+    LO_IDX = list(range(NT, NT + len(SC4)))
+    HI_IDX = list(range(NT + len(SC4), NT + 2 * len(SC4)))
+```
 
-Our reading is that the epsilon-insensitive objective discards the gradient
-information from the 19% to 41% of compounds already inside their interval, and
-those compounds are exactly the well-measured ones whose labels are most reliable.
-Plain MAE keeps learning from them, and the resulting model generalizes better even
-judged by the band criterion. A metric that ignores part of its input is not
-necessarily a loss function that should ignore the same part during training.
+The loss then replaces absolute error with a two-sided hinge on the scored columns only,
+and leaves every auxiliary head on plain absolute error. Chemprop trains in scaled
+space, so the hinge has to be computed in real pIC50 units and scaled back, otherwise
+each endpoint's interval would be measured in the wrong units:
 
-### 4.2 An implementation trap that counterfeits a null result
+```python
+class IntervalMAE(ChempropMetric):
+    def update(self, preds, targets, mask=None, weights=None, lt_mask=None, gt_mask=None):
+        if mask is not None:                     # never train on the bound columns
+            mask = mask.clone()
+            mask[:, self.n_real:] = False
+        super().update(preds, targets, mask, weights, lt_mask, gt_mask)
 
-This is worth publishing because it would be easy to stop at the wrong conclusion.
+    def _calc_unreduced_loss(self, preds, targets, *args):
+        L = (preds - targets).abs()
+        cols = [L[:, i] for i in range(L.shape[1])]
+        for i, li, hj in zip(self.sc_idx, self.lo_idx, self.hi_idx):
+            p  = preds[:, i]   * self.sd[i]  + self.mu[i]       # unscale to pIC50
+            lo = targets[:, li] * self.sd[li] + self.mu[li]
+            hi = targets[:, hj] * self.sd[hj] + self.mu[hj]
+            cols[i] = (torch.relu(lo - p) + torch.relu(p - hi)) / self.sd[i]
+        return torch.stack(cols, dim=1)
+```
 
-Our first implementation of the band objective scored 1.0016 and 1.0043, that is
-ST-RAE of essentially 1.0 to four decimals, which is the naive-mean predictor
-exactly. The cause is that boosting starts from a raw score of 0. Since the pIC50
-labels sit around 4 to 5, every initial prediction was below the band's lower edge,
-so every gradient was -1, uniformly. A constant gradient carries no split
-information, so no tree could learn anything and the model returned the base rate.
+Masking the bound columns in `update` is load bearing. Without it the model grows eight
+heads that learn to predict interval edges, which wastes capacity and changes the
+gradient balance across tasks.
 
-The fix is one line, an `init_score` at the training median so the first gradients
-are already informative. Without it the experiment produces a clean, plausible,
-completely uninformative null. With it the objective still loses, which is the real
-result in 4.1, but for a reason rather than an artifact.
+## 5. The decision layer
 
-### 4.3 There is no recombination gain left
+Four small functions do all of the combining. Together with the metric port they are the
+whole vocabulary of the build:
 
-We enumerated every per-endpoint cell we had ever recorded on the board and computed
-the best achievable macro from any combination of them. The answer is 0.42830,
-which is what is already live. The live entry dominates every recorded cell at every
-endpoint, so there is no column swap available that improves the macro.
+```python
+hinge = lambda p, lo, hi: np.clip(lo - p, 0, None) + np.clip(p - hi, 0, None)
 
-### 4.4 Our internal cross-validation is systematically pessimistic
+def st_rae(y_true, y_pred, lo, hi):
+    """Port of the organizers' rae_soft_threshold_absolute_error."""
+    base = hinge(np.full_like(y_true, y_true.mean()), lo, hi)
+    return float(hinge(y_pred, lo, hi).sum() / base.sum())
 
-We measured how far the blind set actually sits from the training set, against how
-far our folds sit from each other, by nearest-neighbor Tanimoto similarity:
+def mm(b, c, w):
+    """Mean-matched blend: shift c onto b's mean, then mix."""
+    return (1 - w) * b + w * (c + (b.mean() - c.mean()))
 
-- blind set to training set: 0.587
-- random fold to its complement: 0.439
-- scaffold fold to its complement: 0.425
+def restore(raw, ref):
+    """Rank-preserving: keep the reordering, put the mean and sd back to ref's."""
+    return (raw - raw.mean()) / max(raw.std(), 1e-9) * ref.std() + ref.mean()
+```
 
-The blind compounds are *closer* to the training data than our own folds are to each
-other. Our cross-validation therefore understates board performance, and scaffold
-splitting makes the mismatch worse rather than better. This explains a pattern that
-had confused us for several weeks, where a from-scratch single model reaching 0.7949
-cross-validated at CYP1A2 coexists with a production ensemble reaching 0.644
-out-of-fold on the same endpoint. The two numbers are measured against different
-difficulty distributions, and neither is the board's.
+`mm` and `restore` exist for the same reason. A blend of two models pulls the column
+toward the average of two means and shrinks its spread, and on this metric a compressed
+column is punished: predictions collapse toward the center and stop landing inside the
+intervals out in the tails. `mm` removes the location part before mixing, and `restore`
+puts both moments back afterward, so a fitted step is allowed to change the **ranking**
+of compounds but not the shape of the distribution.
 
-The practical consequence is that an offline gain is not directly a board
-prediction, which is what motivates the per-endpoint transfer table in section 3
-rather than acting on offline deltas at face value.
+Note what the ST-RAE denominator is: the same hinge applied to a constant predictor at
+the mean of the labels. It depends only on the labels, not on the model, so it is a
+constant per endpoint. Minimizing ST-RAE is therefore exactly minimizing the summed
+hinge, which is what every fit below actually optimizes.
 
-### 4.5 The largest effect we found is a calibration offset, and cross-validation has the wrong sign on it
+## 6. The build, step by step
 
-The two offsets in section 3 are worth +0.0516 of summed column gain, or +0.0129 of
-macro. That is larger than any modeling change in our entire submission history. It
-is also the one result our offline harness would have told us not to ship.
+### R23, the CYP3A4 column
 
-We recomputed it directly. Using the out-of-fold predictions with the training set's
-own labels and confidence intervals, we swept a uniform additive offset per endpoint
-and found the soft-threshold error minimum:
+Three nested mean-matched blends build a base, a weight for the interval-trained member
+is chosen on a coarse grid, and then a four-term linear correction on auxiliary heads is
+fitted with Powell under an L2 penalty:
 
-| endpoint | offline optimal offset | offline gain at optimum | offline change at the shipped offset | board change at the shipped offset |
-|----------|------------------------|-------------------------|--------------------------------------|------------------------------------|
-| CYP1A2 | -0.035 | +0.0017 | **-0.0539** | **+0.0218** |
-| CYP2C9 | +0.000 | +0.0000 | **-0.0543** | **+0.0298** |
-| CYP2D6 | +0.005 | +0.0001 | n/a | n/a |
-| CYP3A4 | -0.010 | +0.0001 | 0.0000 | 0.0000 |
+```python
+base = mm(mm(mm(o.candidate.to_numpy(), o.mt.to_numpy(), 0.18), direct, 0.20),
+          o.mt.to_numpy(), 0.20)
 
-Out of fold, the optimal offset is zero to within a few hundredths at every endpoint,
-and the offsets we shipped should have cost about 0.054 per column. On the board they
-gained 0.0218 and 0.0298. The sign is opposite and the magnitude is comparable.
+best_w  = min(W_GRID, key=lambda w: hinge(mm(base, o.iv.to_numpy(), w), lo, hi).sum())
+stage_b = mm(base, o.iv.to_numpy(), best_w)
 
-The explanation is that the blind compounds' labels sit higher than the training
-labels. A model calibrated to the training distribution is therefore systematically
-low on the blind set, and a positive offset corrects a location shift that no
-resampling of the training data can expose. Cross-validation measures the model's fit
-to the training distribution, and the gap between train and test is precisely the
-quantity it holds constant.
+AUX = [f"{e}_pic50_qhts_pred", f"{e}_pic50_chembl_pred",
+       f"{e}_max_response_pred", f"{e}_log2fc_pred"]
+Xraw = np.nan_to_num(np.column_stack(
+    [(A_[c].to_numpy(float) - direct) if "pic50" in c else A_[c].to_numpy(float)
+     for c in AUX]), nan=0.0)
+X = (Xraw - Xraw.mean(0)) / (Xraw.std(0) + 1e-9)
 
-This compounds the similarity result in 4.4. Our folds are not just harder than the
-blind set, they are centered differently, so an offline harness built on them is
-wrong about difficulty in one direction and wrong about location in the other.
+w_a4 = minimize(lambda v: hinge(stage_b + X @ v, lo, hi).sum() / len(base)
+                          + L2_A4 * np.sum(v ** 2),
+                np.zeros(4), method="Powell",
+                options={"maxiter": 20000, "xtol": 1e-6, "ftol": 1e-8}).x
+```
 
-Two practical consequences. First, in a blind challenge with a per-endpoint public
-score, a cheap global calibration probe is worth more than a great deal of modeling,
-and should be among the first submissions rather than among the last. Second, the
-offset is not known to be optimized: the soft-threshold objective is convex in the
-offset, we have exactly two board points per endpoint, and two points on a convex
-curve cannot bound the minimum. The measured average slopes over the interval we
-tested are -0.128 ST-RAE per unit offset at CYP1A2 and -0.213 at CYP2C9, both still
-pointing downhill at the offsets we shipped.
+The auxiliary potency heads enter as **differences from the direct head**, not as raw
+values. A qHTS AC50 prediction is on its own scale with its own bias, so the informative
+quantity is the disagreement between the two heads, which is a signal about the
+compound, while the raw value is mostly a signal about the assay.
 
-## 5. What we would do differently
+Powell is used because the objective is piecewise linear with flat regions, so it has no
+useful gradient. Powell is derivative-free and does not care.
 
-Most of our regression effort went into the model and the objective. The two results
-that actually moved the score are the transfer table in section 3 and the calibration
-offset in section 4.5, and both are built entirely from public leaderboard feedback
-that was available from the first week.
+### R24, the other three columns
 
-For a blind challenge with per-endpoint public scoring, we would now spend the first
-few submissions deliberately on measuring the board rather than on improving the
-model: one probe to establish per-endpoint transfer, and one global offset probe per
-endpoint to locate the calibration minimum. Both are nearly free, both are
-deterministic, and in our case the offset probe alone was worth more than a month of
-modeling. The offline harness is then a filter for candidates rather than the thing
-being optimized, which is the only role our own numbers support for it.
+The same pattern, scaled up: every member that has a complete prediction for the
+endpoint enters as a difference from the incumbent, one coefficient each, fitted on the
+hinge with a per-endpoint L2, then moments restored.
 
-The corresponding failure was bookkeeping. Our submission history is complete and
-scored through 2026-09-14 and that ledger is the reason the transfer table exists.
-The offset campaign that produced the current entry was not recorded the same way,
-so we know that two offsets helped and by how much, and we do not know what else was
-tried alongside them. Our own ledger warns about exactly this, and the cost is that
-section 4.5 ends with an open question that one recorded number would have closed.
+```python
+L2 = {"CYP1A2": 1.0, "CYP2C9": 0.1, "CYP2D6": 0.1}   # modal nested inner-fold choices
 
-## 6. Reproduction
+for E in ("CYP1A2", "CYP2C9", "CYP2D6"):
+    o    = oof_base(E)
+    M    = {m: member_pred(m, "oof", E, o.Molecule_Name) for m in MEMBERS}
+    mk   = [m for m in MEMBERS if M[m].notna().all()]   # complete members only
+    keep = pd.DataFrame({m: M[m] for m in mk}).reset_index(drop=True)
+    base = o.r08_like.to_numpy()
+    X    = np.column_stack([keep[m].to_numpy(float) - base for m in mk])
+    lo, hi = o.conf_low.to_numpy(), o.conf_high.to_numpy()
 
-The complete recipe behind the model, including the frozen out-of-fold and blind
-predictions of every member, the training tables and the rebuild script, is in this
-repository. `docs/submission_history.md` is the scored history of every upload,
-per endpoint, with the arithmetic checks that make the transfer table in section 3
-auditable; it is the source for every R25 cell quoted here. `data/submissions/` holds
-the uploaded files, and the live entry is `best_known_20261028.csv`, identified by
-the CYP3A4 column as described in section 3. `data/oof_base/` holds the per-endpoint
-labels, confidence intervals and out-of-fold predictions used for the offset sweep in
-section 4.5.
+    w = minimize(lambda v: hinge(base + X @ v, lo, hi).sum() / len(base)
+                           + L2[E] * np.sum(v ** 2),
+                 np.zeros(X.shape[1]), method="Powell",
+                 options={"maxiter": 60000, "xtol": 1e-6, "ftol": 1e-8}).x
 
-The band-objective comparison, the fold harness and the similarity characterization
-are in the working repository under `analysis/regression_push_20261029/`.
+    # apply to the blind set, then put the first two moments back
+    Xb = np.column_stack([B[m].to_numpy(float) - base_b for m in mk])
+    R24[COL[E]] = restore(base_b + Xb @ w, base_b)
+```
+
+The L2 values are not tuned on the fit itself. They are the modal choice across nested
+inner folds, which is why CYP1A2 carries ten times the penalty of the other two: its fit
+was the least stable across folds.
+
+### R25, one blend on CYP1A2
+
+```python
+E = "CYP1A2"; W_G26 = 0.20
+g = member_pred("g26_tdi_armB", "blind", E, IDS).to_numpy(float)
+b = R24[COL[E]].to_numpy(float)
+R25 = R24.copy()
+R25[COL[E]] = restore(mm(b, g, W_G26), b)
+for E2 in ("CYP2C9", "CYP2D6", "CYP3A4"):
+    assert np.array_equal(R25[COL[E2]].to_numpy(), R24[COL[E2]].to_numpy())
+```
+
+A fifth of the TDI-augmented member, mean-matched in and moments restored, with an
+assertion that the other three columns did not move. That assertion is the habit worth
+copying: every step in this chain ends by proving it changed only what it meant to.
+
+## 7. Reproducing it
+
+```
+pip install -r requirements.txt
+python scripts/build_r25.py
+```
+
+The script verifies the sha256 of each stored submission against
+`data/MANIFEST.json` before using it, rebuilds R23, R24 and R25 in order, and prints the
+largest disagreement against the submitted file at every step along with both hashes.
+`notebooks/reproduce_r25.ipynb` is the same code with commentary, committed with the
+outputs of a run that matched the bytes.
+
+It round-trips each intermediate through CSV on purpose:
+
+```python
+R23.to_csv(BUILD / "R23_rebuilt.csv", index=False)
+R23 = pd.read_csv(BUILD / "R23_rebuilt.csv")
+```
+
+because the original R24 build read R23 back from disk, and sixteen decimal digits
+survive that trip while a float in memory does not necessarily match one that has been
+printed and parsed. Skipping it changes the last bits.
+
+### Whether the bytes match depends on the BLAS
+
+| environment | largest disagreement | bytes |
+|---|---|---|
+| macOS arm64, Accelerate, numpy 2.5.2, scipy 1.18.1 | 8.9e-16 | identical |
+| macOS arm64, Accelerate, numpy 2.0.2, scipy 1.14.1 | 8.9e-16 | identical |
+| linux arm64, OpenBLAS, numpy 2.0.2, scipy 1.14.1 | 5.2e-06 | differ |
+| linux x86_64, OpenBLAS, numpy 2.0.2, scipy 1.14.1 | 3.4e-06 | differ |
+
+Powell is derivative-free: it stops when a line search stops paying, and that point
+moves with the order floating-point sums accumulate. A weight landing on 0.0383 instead
+of 0.0384 shifts 750 predictions by a millionth of a log unit, which changes every byte
+after the sixth decimal. The scored quantities do not move; the fitted weights agree to
+three decimals and the out-of-fold ST-RAE of every step is identical to four decimals
+across all four rows. The script fails only above 1e-4, which would mean a real bug:
+
+```python
+assert maxdiff < 1e-4, (
+    f"the rebuild disagrees with the submitted file by {maxdiff:.1e} pIC50, "
+    "which is too large to be floating-point drift")
+```
+
+## 8. Two things we would do differently
+
+**Fit the decision layer on something closer to the test distribution.** We measured the
+nearest-neighbor Tanimoto from the blind set to the training set at 0.587, against 0.439
+for a random fold and 0.425 for a scaffold fold. The blind compounds are *closer* to the
+training data than our own folds are to each other, so scaffold splitting made our
+harness harder than the real task and every fitted step was tuned under a pessimism that
+does not apply.
+
+**Calibrate location against the public score early.** The build above produces
+well-ranked columns, and the single largest improvement we ever measured came later and
+from outside it: a uniform additive offset per endpoint, worth more than any change in
+sections 4 to 6. Out of fold the optimal offset is zero at every endpoint, because
+cross-validation holds the train-to-test gap constant and a location shift between them
+is exactly what it cannot see. The ranking work in this document is what the model is
+for; the offset is a free parameter the leaderboard will fit for you if you spend one
+submission asking.
