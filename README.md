@@ -13,8 +13,8 @@ tables and training scripts, and the scored history of every upload. MIT-0 licen
 
 ## Method reports
 
-- [`docs/regression_method_report.md`](docs/regression_method_report.md) is how R25 was
-  built: the 22-target training table and how public data was joined to it without
+- [`docs/regression_method_report.md`](docs/regression_method_report.md) is how the
+  regression submission was built: the 22-target training table and how public data was joined to it without
   leaking, the twelve Chemprop members and the three switches that distinguish them, the
   interval objective that rides the credible bounds in as zero-weight target columns, and
   the four-function decision layer that fits each step on the hinge and restores the

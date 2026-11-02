@@ -1,16 +1,19 @@
-# How R25 was built
+# How our regression submission was built
 
-R25 is our submission to the OpenADMET CYP inhibition blind challenge. The challenge
-gives out 750 compounds with the answers withheld and takes a CSV: one row per compound,
-four columns of predicted pIC50, one for each of CYP1A2, CYP2C9, CYP2D6 and CYP3A4. R25
-is our own build number. We numbered candidates R00 upward as we made them, and the
-numbers skip because we built more than we sent.
+This is our entry in the regression track of the OpenADMET CYP inhibition blind
+challenge. The challenge gives out 750 compounds with the answers withheld and takes a
+CSV: one row per compound, four columns of predicted pIC50, one for each of CYP1A2,
+CYP2C9, CYP2D6 and CYP3A4.
 
-R25 is the last of those files that our modeling produced. It scored a macro ST-RAE of
-0.4436 on the public leaderboard, lower being better, against 0.4620 for the file it was
-built from. This document is how it was built: the training tables, the twelve models
-behind it, the loss function that made the difference, and the decision layer that turns
-twelve sets of predictions into those four columns.
+We call that file R25. It is our own build number and nothing the organizers use: we
+numbered candidates R00 upward as we made them, and the numbers skip because we built
+more than we sent. R25 is the last of those files our modeling produced, and it scored a
+macro ST-RAE of 0.4436 on the public leaderboard, lower being better, against 0.4620 for
+the file it was built from.
+
+This document is how it was built: the training tables, the twelve models behind it, the
+loss function that made the difference, and the decision layer that turns twelve sets of
+predictions into those four columns.
 
 The entry live on the board is not R25 itself. It is R25 with two constants added and
 one column replaced, and it scores 0.4283:
