@@ -11,6 +11,20 @@ This repository is the method report and the complete recipe: the submitted file
 frozen predictions of every model behind it, the code that combines them, the training
 tables and training scripts, and the scored history of every upload. MIT-0 licence.
 
+## Method reports
+
+- [`docs/regression_method_report.md`](docs/regression_method_report.md) is how the
+  regression submission was built: the 22-target training table and how public data was joined to it without
+  leaking, the twelve Chemprop members and the three switches that distinguish them, the
+  interval objective that rides the credible bounds in as zero-weight target columns, and
+  the four-function decision layer that fits each step on the hinge and restores the
+  column's moments afterward. With the code for each.
+- [`docs/structure_method_report.md`](docs/structure_method_report.md) is how the structure
+  submission was built: the three-chain input with the heme as its own CCD chain,
+  the stripped apo template, pose selection, the PDB cleaning and zip preflight, and the
+  stereochemistry audit including the ring topology that a CIP-code check passes
+  vacuously.
+
 ## Reproduce the submission
 
 ```
