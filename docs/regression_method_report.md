@@ -15,8 +15,8 @@ not carry the idea. The authoritative versions are `scripts/build_r25.py`,
 
 ## 1. Shape of the thing
 
-R25 is not one model. It is the last link in a chain where each step changes specific
-columns and leaves the others byte-identical:
+R25 is not one model. It is the last link in a chain of submission files, where each
+step changes specific columns and leaves the others byte-identical:
 
 ```
 R17  ->  R23            ->  R24                      ->  R25
@@ -25,10 +25,75 @@ R17  ->  R23            ->  R24                      ->  R25
 
 Each step is fitted out of fold, applied to the blind set, and written out. Columns are
 treated independently because the metric scores four independent columns and averages
-them, so a change at one endpoint cannot help or hurt another.
+them, so a change at one endpoint cannot help or hurt another. The numbers are local
+build ids and they skip, because more candidates were built and checked than were ever
+sent.
 
 Underneath the chain sit twelve frozen models, the "members". Every step is a small
 fitted combination of member predictions on top of the previous column.
+
+### What R17 is
+
+R17 is where the chain starts, and it needs stating plainly because it is not a model.
+It is a CSV file: 750 rows, one column per endpoint. Its four columns come from four
+different earlier submissions.
+
+The leaderboard reports a score for each endpoint separately, not only the macro
+average. After eighteen entries that makes the per-endpoint best known, so R17 was
+assembled by taking each column from whichever earlier file had scored best at that
+endpoint:
+
+| column | taken from | what produced that column | its live ST-RAE |
+|---|---|---|---|
+| CYP1A2 | R08, 09-06 | an interval-objective head blended onto the R06 base at w = 0.40 | 0.4909 |
+| CYP2C9 | R10, 09-10 | an inverse-variance member at w = 0.25 over an earlier mt_aux8 blend | 0.3862 |
+| CYP2D6 | R08, 09-06 | the R06 base column, with no interval blend | 0.5694 |
+| CYP3A4 | R14, 09-11 | mt_aux8 into all four endpoints, weights chosen on nested folds | 0.4014 |
+
+That is all of it: no training, no fitting, four columns pasted side by side. It scored
+macro 0.4620, which is exactly the mean of the four cells above. Hitting the predicted
+macro to the last digit is the useful part, because it confirms the board really does
+score four independent columns and re-scores an untouched one identically. Every later
+step relies on that.
+
+So when the rest of this document says a step is fitted "on top of the incumbent", the
+incumbent is R17 and its macro is 0.4620. Sections 4 to 6 are the work of taking that to
+0.4436.
+
+### The out-of-fold twin of R17
+
+R17 exists only on the blind set. Every fit below happens out of fold on training
+compounds, where there is no R17 to improve on, so the chain needs a stand-in: the same
+recipe, rebuilt on the training folds. `training/build_r08_baseline.py` does that from
+the two prediction columns the early submissions were themselves built from, `candidate`
+and `interval`:
+
+```python
+# R08 applies interval heads ONLY to CYP1A2 and CYP2C9, weights 0.4 and 0.3.
+R08_WEIGHTS = {"CYP1A2": 0.40, "CYP2C9": 0.30, "CYP2D6": 0.0, "CYP3A4": 0.0}
+
+def apply_operation(frame, current, component, weight):
+    """Fold-local blend, copied from build_candidate.apply_operation, method 'direct'."""
+    out = np.full(len(frame), np.nan)
+    for fold in sorted(frame["fold"].unique()):
+        sel = frame["fold"].eq(fold).to_numpy()
+        base, extra = current[sel], component[sel].copy()
+        extra += float(base.mean() - extra.mean())     # mean-match before mixing
+        out[sel] = (1.0 - weight) * base + weight * extra
+    return out
+```
+
+The output is `data/oof_base/r08_like_oof_<endpoint>.csv`, one row per training compound
+carrying its label, its credible interval and that baseline prediction. The `r08_like`
+column is the comparator every later step has to beat, and it is the `base` variable in
+all the fitting code in section 6.
+
+The script fails closed: its CYP1A2 output has to reproduce an existing reference column
+to floating-point tolerance, because that column was written by the code this script
+mirrors. That guard exists because of the failure that prompted the rebuild. For the
+first week there was no local reconstruction of our own incumbent at all, so every local
+gate ran against a weaker comparator, and a candidate that beat the local baseline by
+0.074 lost to R08 by 0.187 live. The panel was not wrong; the question it was asked was.
 
 ## 2. Training data
 
@@ -270,6 +335,14 @@ for E in ("CYP1A2", "CYP2C9", "CYP2D6"):
 The L2 values are not tuned on the fit itself. They are the modal choice across nested
 inner folds, which is why CYP1A2 carries ten times the penalty of the other two: its fit
 was the least stable across folds.
+
+One mismatch is worth flagging, because it is visible in the code above. Out of fold
+`base` is the R08-like twin at all three endpoints, but on the blind set `base_b` is
+R17's column, and for CYP2C9 those are not the same recipe: R17 took that column from
+R10, two submissions later. So the coefficients are fitted on how members differ from an
+R08-like baseline and then applied to how they differ from a better one. CYP1A2 and
+CYP2D6 have the same base on both sides and do not carry this. CYP2C9 went the right way
+live anyway, 0.3862 to 0.3802, but the fit did not guarantee that.
 
 ### R25, one blend on CYP1A2
 
