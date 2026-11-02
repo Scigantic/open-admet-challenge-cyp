@@ -1,13 +1,37 @@
 # How R25 was built
 
-The regression entry for the OpenADMET CYP inhibition blind challenge predicts pIC50
-against CYP1A2, CYP2C9, CYP2D6 and CYP3A4 for 750 blind compounds. This document is the
-construction: the training tables, the twelve models behind it, the loss function that
-made the difference, and the decision layer that combines them into one CSV.
+**R25 is a file, and the name is ours.** The OpenADMET CYP inhibition blind challenge
+gives you 750 compounds with the answers withheld and accepts a CSV: one row per
+compound, four columns of predicted pIC50, one for each of CYP1A2, CYP2C9, CYP2D6 and
+CYP3A4. We built candidates and numbered them in the order we made them, R00 upward, so
+"R25" means one specific such CSV. The numbers are internal build ids, not anything the
+organizers know about, and they skip, because we built and checked more candidates than
+we ever sent.
 
-Everything here runs from this repository. `scripts/build_r25.py` rebuilds the uploaded
-file from frozen member predictions in about three seconds with no training and no GPU,
-and checks the result against the submitted bytes.
+R25 is the one worth writing up because it is the last entry our modeling produced. It
+scored a macro ST-RAE of 0.4436 on the public leaderboard, where lower is better, against
+0.4620 for the file it was built from. This document is that construction: the training
+tables, the twelve models behind it, the loss function that made the difference, and the
+decision layer that turns twelve sets of predictions into those four columns.
+
+**R25 is not what is on the board today.** The live entry scores 0.4283, and it is R25
+with two constants added to it:
+
+| column | the live file, measured against R25 |
+|---|---|
+| CYP1A2 | every row plus 0.170 |
+| CYP2C9 | every row plus 0.140 |
+| CYP2D6 | a different column, from a later model |
+| CYP3A4 | byte-identical |
+
+One constant per column turned out to be worth more than any modeling change in the
+whole project, and section 8 explains why, and why cross-validation cannot find it. But
+it is two numbers read off a leaderboard, not a method. R25 is the method, so R25 is what
+this document builds.
+
+Everything here runs from this repository. `scripts/build_r25.py` rebuilds R25 from
+frozen member predictions in about three seconds, with no training and no GPU, and checks
+the result against the bytes that were submitted.
 
 Every code block below is from the file it is attributed to, abridged where a line does
 not carry the idea. The authoritative versions are `scripts/build_r25.py`,

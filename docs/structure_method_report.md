@@ -1,8 +1,10 @@
 # How the CYP3A4 complexes were built
 
 The structure entry for the OpenADMET CYP inhibition blind challenge predicts the
-CYP3A4 ligand complex for 20 blind compounds, scored by lDDT-PLI over protein-ligand
-contacts. This document is the construction: how an input is assembled, how the run is
+CYP3A4 ligand complex for 20 blind compounds. The submission is a zip of 20 PDB files,
+one per compound, each holding a protein chain, a heme and a posed ligand. It is scored
+by lDDT-PLI, a recovery rate over protein-ligand atom contacts, where higher is better;
+the bundle this document describes scores 0.4565. This document is the construction: how an input is assembled, how the run is
 packaged, how one pose is chosen out of many, how the submission file is cleaned, and
 how we verify the thing we are about to upload is chemically the molecule we were asked
 about.
